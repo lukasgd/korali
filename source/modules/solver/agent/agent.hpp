@@ -209,9 +209,9 @@ class Agent : public Solver
   */
    int _multiAgentCorrelation;
   /**
-  * @brief Only important in strong correlation case, if set to True we first multiplicate and then truncate, if set to False we first truncate and then multiplicate.
+  * @brief Specifies whether we are in an individual setting or collaborator setting.
   */
-   int _strongTruncationVariant;
+   std::string _multiAgentSampling;
   /**
   * @brief [Internal Use] Stores the number of parameters that determine the probability distribution for the current state sequence.
   */
@@ -348,6 +348,14 @@ class Agent : public Solver
   * @brief [Internal Use] Contains the standard deviations of the states. They will be scaled by this value in order to normalize the state distribution in the RM.
   */
    std::vector<std::vector<float>> _stateRescalingSigmas;
+  /**
+  * @brief [Internal Use] Factor changing the effective size of the mini batch. Depends on the Multi Agent Sampling configuration setting.
+  */
+   size_t _miniBatchSizeFactor;
+  /**
+  * @brief [Internal Use] Vector containing the agent ids that were sampled to get the experience in the Multi Agent Sampling Single setting.
+  */
+   std::vector<size_t> _sampledAgentIds;
   /**
   * @brief [Termination Criteria] The solver will stop when the given number of episodes have been run.
   */

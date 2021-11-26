@@ -35,7 +35,7 @@ void VRACER::initializeAgent()
     _criticPolicyExperiment[p]["Problem"]["Type"] = "Supervised Learning";
     _criticPolicyExperiment[p]["Problem"]["Max Timesteps"] = _timeSequenceLength;
     if (_problem->_policiesPerEnvironment == 1)
-      _criticPolicyExperiment[p]["Problem"]["Training Batch Size"] = _miniBatchSize * _problem->_agentsPerEnvironment;
+      _criticPolicyExperiment[p]["Problem"]["Training Batch Size"] = _miniBatchSize * _miniBatchSizeFactor;
     else
       _criticPolicyExperiment[p]["Problem"]["Training Batch Size"] = _miniBatchSize;
     _criticPolicyExperiment[p]["Problem"]["Inference Batch Size"] = 1;
@@ -157,69 +157,75 @@ void VRACER::calculatePolicyGradients(const std::vector<size_t> &miniBatch)
     }
 
     // If Multi Agent Correlation calculate product of importance weights
-    float prodImportanceWeight = 1.0f;
+    float logProdImportanceWeight = 0.0f;
     if (_multiAgentCorrelation)
     {
       for (size_t d = 0; d < _problem->_agentsPerEnvironment; d++)
-        prodImportanceWeight *= _importanceWeightVector[expId][d];
+        logProdImportanceWeight += std::log(_importanceWeightVector[expId][d]);
     }
+    float prodImportanceWeight = std::exp(logProdImportanceWeight);
 
-    for (size_t d = 0; d < _problem->_agentsPerEnvironment; d++)
+    for (size_t d = 0; d < _miniBatchSizeFactor; d++)
     {
+      // Get Agent Id for Experience
+      size_t expAgentId = d;
+      if( _multiAgentSampling == "Single" && _problem->_policiesPerEnvironment == 1 )
+        expAgentId = _sampledAgentIds[expId];
+
       // Storage for the update gradient
       std::vector<float> gradientLoss(1 + 2 * _problem->_actionVectorSize, 0.0f);
 
       // Gradient of Value Function V(s) (eq. (9); *-1 because the optimizer is maximizing)
-      gradientLoss[0] = (expVtbc[d] - V[d]);
+      gradientLoss[0] = (expVtbc[expAgentId] - V[expAgentId]);
 
       //Gradient has to be divided by Number of Agents in Cooperation models
       if (_multiAgentRelationship == "Cooperation")
         gradientLoss[0] /= _problem->_agentsPerEnvironment;
 
       // Compute policy gradient only if inside trust region (or offPolicy disabled)
-      if (_isOnPolicyVector[expId][d])
+      if (_isOnPolicyVector[expId][expAgentId])
       {
         // Qret for terminal state is just reward
-        float Qret = getScaledReward(_rewardVector[expId][d], d);
+        float Qret = getScaledReward(_rewardVector[expId][expAgentId], expAgentId);
 
         // If experience is non-terminal, add Vtbc
         if (_terminationVector[expId] == e_nonTerminal)
         {
-          float nextExpVtbc = _retraceValueVector[expId + 1][d];
+          float nextExpVtbc = _retraceValueVector[expId + 1][expAgentId];
           Qret += _discountFactor * nextExpVtbc;
         }
 
         // If experience is truncated, add truncated state value
         if (_terminationVector[expId] == e_truncated)
         {
-          float nextExpVtbc = _truncatedStateValueVector[expId][d];
+          float nextExpVtbc = _truncatedStateValueVector[expId][expAgentId];
           Qret += _discountFactor * nextExpVtbc;
         }
 
         // Compute Off-Policy Objective (eq. 5)
-        const float lossOffPolicy = Qret - V[d];
+        const float lossOffPolicy = Qret - V[expAgentId];
 
         // Compute Off-Policy Gradient
-        auto polGrad = calculateImportanceWeightGradient(expAction[d], curPolicy[d], expPolicy[d]);
+        auto polGrad = calculateImportanceWeightGradient(expAction[expAgentId], curPolicy[expAgentId], expPolicy[expAgentId]);
 
         // If multi-agent correlation, multiply with additional factor
         if (_multiAgentCorrelation)
         {
-          const float correlationFactor = prodImportanceWeight / _importanceWeightVector[expId][d];
+          const float correlationFactor = prodImportanceWeight / _importanceWeightVector[expId][expAgentId];
           for (size_t i = 0; i < polGrad.size(); i++)
             polGrad[i] *= correlationFactor;
         }
 
         // Set Gradient of Loss wrt Params
         for (size_t i = 0; i < 2 * _problem->_actionVectorSize; i++)
-          gradientLoss[1 + i] = _experienceReplayOffPolicyREFERCurrentBeta[d] * lossOffPolicy * polGrad[i];
+          gradientLoss[1 + i] = _experienceReplayOffPolicyREFERCurrentBeta[expAgentId] * lossOffPolicy * polGrad[i];
       }
 
       // Compute derivative of kullback-leibler divergence wrt current distribution params
-      const auto klGrad = calculateKLDivergenceGradient(expPolicy[d], curPolicy[d]);
+      const auto klGrad = calculateKLDivergenceGradient(expPolicy[expAgentId], curPolicy[expAgentId]);
 
       // Step towards old policy (gradient pointing to larger difference between old and current policy)
-      const float klGradMultiplier = -(1.0f - _experienceReplayOffPolicyREFERCurrentBeta[d]);
+      const float klGradMultiplier = -(1.0f - _experienceReplayOffPolicyREFERCurrentBeta[expAgentId]);
 
       // Write vector for backward operation of neural network
       for (size_t i = 0; i < _problem->_actionVectorSize; i++)
@@ -250,7 +256,7 @@ void VRACER::calculatePolicyGradients(const std::vector<size_t> &miniBatch)
 
       // Set Gradient of Loss as Solution
       if (_problem->_policiesPerEnvironment == 1)
-        _criticPolicyProblem[0]->_solutionData[b * _problem->_agentsPerEnvironment + d] = gradientLoss;
+        _criticPolicyProblem[0]->_solutionData[b * _miniBatchSizeFactor + d] = gradientLoss;
       else
         _criticPolicyProblem[d]->_solutionData[b] = gradientLoss;
     }
@@ -286,16 +292,24 @@ void VRACER::runPolicy(const std::vector<std::vector<std::vector<float>>> &state
   }
   else // training operation
   {
-    // Storage for each sample for all Policies
-    std::vector<std::vector<std::vector<std::vector<float>>>> stateBatchDistributed(_problem->_policiesPerEnvironment);
-    for (size_t b = 0; b < batchSize; b++)
+    // Associate samples in stateBatch to correct policy
+    std::vector<std::vector<std::vector<std::vector<float>>>> stateBatchReordered(_miniBatchSizeFactor);
+
+    if( _multiAgentSampling == "Single" && _problem->_policiesPerEnvironment == 1 )
+      stateBatchReordered[0] = stateBatch;
+    
+    if( _multiAgentSampling == "Collective" || 
+        _problem->_policiesPerEnvironment ==  _problem->_agentsPerEnvironment )
     {
-      stateBatchDistributed[b % _problem->_policiesPerEnvironment].push_back(stateBatch[b]);
+      for (size_t b = 0; b < batchSize; b++)
+      {
+        stateBatchReordered[b % _miniBatchSizeFactor].push_back(stateBatch[b]);
+      }
     }
 
     for (size_t p = 0; p < _problem->_policiesPerEnvironment; p++)
     {
-      const auto evaluation = _criticPolicyLearner[p]->getEvaluation(stateBatchDistributed[p]);
+      const auto evaluation = _criticPolicyLearner[p]->getEvaluation(stateBatchReordered[p]);
 #pragma omp parallel for
       for (size_t b = 0; b < evaluation.size(); b++)
       {
