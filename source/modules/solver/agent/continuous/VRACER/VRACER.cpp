@@ -151,7 +151,7 @@ void VRACER::trainPolicy()
       // Now applying gradients to update policy NN
       _criticPolicyLearner[p]->runGeneration();
     }
-  } 
+  }
 }
 
 void VRACER::calculatePolicyGradients(const std::vector<size_t> &miniBatch, const std::vector<policy_t> &policyData, const size_t policyIdx)
@@ -320,7 +320,7 @@ void VRACER::runPolicy(const std::vector<std::vector<std::vector<float>>> &state
   // Getting batch size
   size_t batchSize = stateBatch.size();
 
-  // Forward the neural network for this state
+  // Forward the neural network for this states
   const auto evaluation = _criticPolicyLearner[policyIdx]->getEvaluation(stateBatch);
 
   // Preparing storage for results
