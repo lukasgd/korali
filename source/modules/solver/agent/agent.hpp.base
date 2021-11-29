@@ -346,7 +346,7 @@ class __className__ : public __parentClassName__
    * @param miniBatch The mini batch of experience ids to update
    * @param policyData The policy to use to evaluate the experiences
    */
-  void updateExperienceMetadata(const std::vector<size_t> &miniBatch, const std::vector<policy_t> &policyData);
+  void updateExperienceMetadata(const std::vector<size_t> &miniBatch, const std::vector<policy_t> &policyData, const size_t policyIdx);
 
   /**
    * @brief Resets time sequence within the agent, to forget past actions from other episodes
@@ -365,7 +365,7 @@ class __className__ : public __parentClassName__
    * @param stateBatch The batch of state time series (Format: BxTxS, B is batch size, T is the time series lenght, and S is the state size)
    * @return A JSON object containing the information produced by the policies given the current state series
    */
-  virtual void runPolicy(const std::vector<std::vector<std::vector<float>>> &stateBatch, std::vector<policy_t> &policy, size_t policyIdx = 0) = 0;
+  virtual void runPolicy(const std::vector<std::vector<std::vector<float>>> &stateBatch, std::vector<policy_t> &policy, const size_t policyIdx = 0) = 0;
 
   /**
    * @brief Calculates the starting experience index of the time sequence for the selected experience

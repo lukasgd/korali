@@ -91,7 +91,7 @@ void dVRACER::trainPolicy()
   runPolicy(stateSequence, policyInfo);
 
   // Using policy information to update experience's metadata
-  updateExperienceMetadata(miniBatch, policyInfo);
+  updateExperienceMetadata(miniBatch, policyInfo, 42);
 
   // Now calculating policy gradients
   calculatePolicyGradients(miniBatch);

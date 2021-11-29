@@ -213,6 +213,10 @@ class Agent : public Solver
   */
    std::string _multiAgentSampling;
   /**
+  * @brief Specifies whether we are in an individual setting or collaborator setting.
+  */
+   std::string _multiPolicyUpdate;
+  /**
   * @brief [Internal Use] Stores the number of parameters that determine the probability distribution for the current state sequence.
   */
    size_t _policyParameterCount;
@@ -348,10 +352,6 @@ class Agent : public Solver
   * @brief [Internal Use] Contains the standard deviations of the states. They will be scaled by this value in order to normalize the state distribution in the RM.
   */
    std::vector<std::vector<float>> _stateRescalingSigmas;
-  /**
-  * @brief [Internal Use] Factor changing the effective size of the mini batch. Depends on the Multi Agent Sampling configuration setting.
-  */
-   size_t _miniBatchSizeFactor;
   /**
   * @brief [Internal Use] Vector containing the agent ids that were sampled to get the experience in the Multi Agent Sampling Single setting.
   */
@@ -669,7 +669,7 @@ class Agent : public Solver
    * @param miniBatch The mini batch of experience ids to update
    * @param policyData The policy to use to evaluate the experiences
    */
-  void updateExperienceMetadata(const std::vector<size_t> &miniBatch, const std::vector<policy_t> &policyData);
+  void updateExperienceMetadata(const std::vector<size_t> &miniBatch, const std::vector<policy_t> &policyData, const size_t policyIdx);
 
   /**
    * @brief Resets time sequence within the agent, to forget past actions from other episodes
@@ -688,7 +688,7 @@ class Agent : public Solver
    * @param stateBatch The batch of state time series (Format: BxTxS, B is batch size, T is the time series lenght, and S is the state size)
    * @return A JSON object containing the information produced by the policies given the current state series
    */
-  virtual void runPolicy(const std::vector<std::vector<std::vector<float>>> &stateBatch, std::vector<policy_t> &policy, size_t policyIdx = 0) = 0;
+  virtual void runPolicy(const std::vector<std::vector<std::vector<float>>> &stateBatch, std::vector<policy_t> &policy, const size_t policyIdx = 0) = 0;
 
   /**
    * @brief Calculates the starting experience index of the time sequence for the selected experience

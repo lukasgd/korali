@@ -1,6 +1,6 @@
 #!/bin/bash
 
-pip install pettingzoo
-pip install pettingzoo[sisl]
-pip install pettingzoo[magent]
+pip install pettingzoo --user
+pip install pettingzoo[sisl] --user
+pip install pettingzoo[magent] --user
 
