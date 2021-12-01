@@ -97,13 +97,9 @@ class dVRACER : public Discrete
    * @brief Calculates the gradients for the policy/critic neural network
    * @param miniBatch The indexes of the experience mini batch
    */
-  void calculatePolicyGradients(const std::vector<size_t> &miniBatch, const std::vector<policy_t> &policy, const size_t policyIdx);
-
-  float calculateStateValue(const std::vector<float> &state, size_t policyIdx = 0) override;
+  void calculatePolicyGradients(const std::vector<std::pair<size_t,size_t>> &miniBatch, const std::vector<policy_t> &policy, const size_t policyIdx);
 
   void runPolicy(const std::vector<std::vector<std::vector<float>>> &stateBatch, std::vector<policy_t> &policy, const size_t policyIdx = 0) override;
-
-  std::vector<policy_t> getPolicyInfo(const std::vector<size_t> &miniBatch) const;
 
   knlohmann::json getAgentPolicy() override;
   void setAgentPolicy(const knlohmann::json &hyperparameters) override;

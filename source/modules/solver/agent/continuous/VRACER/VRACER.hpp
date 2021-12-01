@@ -32,10 +32,6 @@ namespace continuous
 class VRACER : public Continuous
 {
   public: 
-  /**
-  * @brief [Internal Use] Standard deviation of the actions in the minibatch.
-  */
-   std::vector<float> _statisticsAverageActionSigmas;
   
  
   /**
@@ -89,31 +85,19 @@ class VRACER : public Continuous
    * @brief Calculates the gradients for the policy/critic neural network
    * @param miniBatch The indexes of the experience mini batch
    */
-  void calculatePolicyGradients(const std::vector<size_t> &miniBatch, const std::vector<policy_t> &policy, const size_t policyIdx);
-
-  float calculateStateValue(const std::vector<float> &state, const size_t policyIdx = 0) override;
+  void calculatePolicyGradients(const std::vector<std::pair<size_t,size_t>> &miniBatch, const std::vector<policy_t> &policy, const size_t policyIdx);
 
   void runPolicy(const std::vector<std::vector<std::vector<float>>> &stateBatch, std::vector<policy_t> &policy, const size_t policyIdx = 0) override;
 
   /**
    * @brief [Statistics] Keeps track of the max policy mu of the current minibatch for each action variable
    */
-  std::vector<std::vector<float>> _maxMiniBatchPolicyMean;
+  std::vector<float> _miniBatchPolicyMean;
 
   /**
    * @brief [Statistics] Keeps track of the max policy sigma of the current minibatch for each action variable
    */
-  std::vector<std::vector<float>> _maxMiniBatchPolicyStdDev;
-
-  /**
-   * @brief [Statistics] Keeps track of the min policy mu of the current minibatch for each action variable
-   */
-  std::vector<std::vector<float>> _minMiniBatchPolicyMean;
-
-  /**
-   * @brief [Statistics] Keeps track of the min policy sigma of the current minibatch for each action variable
-   */
-  std::vector<std::vector<float>> _minMiniBatchPolicyStdDev;
+  std::vector<float> _miniBatchPolicyStdDev;
 
   knlohmann::json getAgentPolicy() override;
   void setAgentPolicy(const knlohmann::json &hyperparameters) override;

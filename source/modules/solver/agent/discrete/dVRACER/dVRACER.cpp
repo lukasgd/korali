@@ -33,10 +33,7 @@ void dVRACER::initializeAgent()
   {
     _criticPolicyExperiment[p]["Problem"]["Type"] = "Supervised Learning";
     _criticPolicyExperiment[p]["Problem"]["Max Timesteps"] = _timeSequenceLength;
-    if ( _problem->_policiesPerEnvironment == 1 || _multiPolicyUpdate == "All" )
-      _criticPolicyExperiment[p]["Problem"]["Training Batch Size"] = _miniBatchSize * _problem->_policiesPerEnvironment;
-    else
-      _criticPolicyExperiment[p]["Problem"]["Training Batch Size"] = _miniBatchSize;
+    _criticPolicyExperiment[p]["Problem"]["Training Batch Size"] = _miniBatchSize;
     _criticPolicyExperiment[p]["Problem"]["Inference Batch Size"] = 1;
     _criticPolicyExperiment[p]["Problem"]["Input"]["Size"] = _problem->_stateVectorSize;
     _criticPolicyExperiment[p]["Problem"]["Solution"]["Size"] = 1 + _policyParameterCount; // The value function, action q values, and inverse temperatur
@@ -79,19 +76,47 @@ void dVRACER::initializeAgent()
 
 void dVRACER::trainPolicy()
 {
-  // Obtaining Minibatch experience indices
-  const auto miniBatch = generateMiniBatch(_miniBatchSize);
+  // Obtaining minibatch of experiences
+  const auto miniBatch = generateMiniBatch();
 
-  /* Gathering state sequences for selected minibatch
-   * Shape [ _miniBatchSize * _problem->_agentsPerEnvironment, timeSequenceLength, _problem->_stateVectorSize (+ _problem->_actionVectorSize) ]
-   * For _multiAgentSampling == "Single" the distribution with respect to agent will be uniform
-   * Otherwise, _miniBatchSize experiences per agent are stacked sequentially [s^{(1)}_1,..., s^{(1)}_M, s^{(2)}_1, ...]
-  */ 
+  // Gathering state sequences for selected minibatch
   const auto stateSequence = getMiniBatchStateSequence(miniBatch);
 
   /* Forward Policy, compute Gradient, and perform Backpropagation */
+  for (size_t p = 0; p < _problem->_policiesPerEnvironment; p++)
+  for (size_t a = 0; a < _problem->_agentsPerEnvironment; a++)
+  {
+    // Skip iterations depending on case
+    if( _multiPolicyUpdate == "All" && p == a )
+      continue;
 
-  // Use experiences from all agents to update all policies
+    if( _multiPolicyUpdate == "Self" && p != a )
+      continue;
+
+    // Running policy NN on the Minibatch experiences
+    std::vector<policy_t> policyInfo;
+
+    // Extract minibatch of experiences for agent a
+    std::vector<std::pair<size_t,size_t>> miniBatchTruncated( miniBatch.begin()+a*_miniBatchSize, miniBatch.begin()+(a+1)*_miniBatchSize);
+    const std::vector<std::vector<std::vector<float>>> stateSequenceTruncated( stateSequence.begin()+a*_miniBatchSize, stateSequence.begin()+(a+1)*_miniBatchSize );
+
+    // Forward Mini Batch
+    runPolicy(stateSequenceTruncated, policyInfo, p);
+
+    // Update Metadata and everything needed for gradient computation
+    updateExperienceMetadata(miniBatchTruncated, policyInfo, p);
+
+    // Now calculating policy gradients
+    calculatePolicyGradients(miniBatchTruncated, policyInfo, p);
+
+    // Updating learning rate for critic/policy learner guided by REFER
+    _criticPolicyLearner[p]->_learningRate = _currentLearningRate;
+
+    // Now applying gradients to update policy NN
+    _criticPolicyLearner[p]->runGeneration();
+  }
+
+  // Now updated with own experiences
   if( _multiPolicyUpdate == "All" )
   {
     for (size_t p = 0; p < _problem->_policiesPerEnvironment; p++)
@@ -99,41 +124,18 @@ void dVRACER::trainPolicy()
       // Running policy NN on the Minibatch experiences
       std::vector<policy_t> policyInfo;
 
-      // Forward Mini Batch with all Experiences
-      runPolicy(stateSequence, policyInfo, p);
+      // Extract minibatch of experiences for agent p
+      std::vector<std::pair<size_t,size_t>> miniBatchTruncated( miniBatch.begin()+p*_miniBatchSize, miniBatch.begin()+(p+1)*_miniBatchSize );
+      const std::vector<std::vector<std::vector<float>>> stateSequenceTruncated( stateSequence.begin()+p*_miniBatchSize, stateSequence.begin()+(p+1)*_miniBatchSize );
+
+      // Forward Mini Batch
+      runPolicy(stateSequenceTruncated, policyInfo, p);
 
       // Update Metadata and everything needed for gradient computation
-      updateExperienceMetadata(miniBatch, policyInfo, p);
+      updateExperienceMetadata(miniBatchTruncated, policyInfo, p);
 
       // Now calculating policy gradients
-      calculatePolicyGradients(miniBatch, policyInfo, p);
-
-      // Updating learning rate for critic/policy learner guided by REFER
-      _criticPolicyLearner[p]->_learningRate = _currentLearningRate;
-
-      // Now applying gradients to update policy NN
-      _criticPolicyLearner[p]->runGeneration();
-    }
-  }
-
-  // Correct Metadata and perform update only using agent's experiences 
-  for (size_t p = 0; p < _problem->_policiesPerEnvironment; p++)
-  {
-    // Running policy NN on the Minibatch experiences
-    std::vector<policy_t> policyInfo;
-
-    // Forward Mini Batch with all Experiences
-    const std::vector<std::vector<std::vector<float>>> stateSequenceTrucated(stateSequence.begin()+p*_problem->_agentsPerEnvironment,stateSequence.begin()+(p+1)*_problem->_agentsPerEnvironment);
-    runPolicy(stateSequenceTrucated, policyInfo, p);
-
-    // Update Metadata and everything needed for gradient computation
-    updateExperienceMetadata(miniBatch, policyInfo, p);
-
-    // If wished, update the policy only using the experiences from the respective agents
-    if( _multiPolicyUpdate == "Self" )
-    {
-      // Now calculating policy gradients
-      calculatePolicyGradients(miniBatch, policyInfo, p);
+      calculatePolicyGradients(miniBatchTruncated, policyInfo, p);
 
       // Updating learning rate for critic/policy learner guided by REFER
       _criticPolicyLearner[p]->_learningRate = _currentLearningRate;
@@ -144,147 +146,131 @@ void dVRACER::trainPolicy()
   }
 }
 
-void dVRACER::calculatePolicyGradients(const std::vector<size_t> &miniBatch, const std::vector<policy_t> &policyData, const size_t policyIdx)
+void dVRACER::calculatePolicyGradients(const std::vector<std::pair<size_t,size_t>> &miniBatch, const std::vector<policy_t> &policyData, const size_t policyIdx)
 {
   const size_t miniBatchSize = miniBatch.size();
-  const size_t policyDataSize = policyData.size();
-  
+
   // Init statistics
   _statisticsAverageInverseTemperature = 0.;
   _statisticsAverageActionUnlikeability = 0.;
 
-#pragma omp parallel for reduction(+: _statisticsAverageInverseTemperature, _statisticsAverageActionUnlikeability)
+  #pragma omp parallel for reduction(+ : _statisticsAverageInverseTemperature, _statisticsAverageActionUnlikeability )
   for (size_t b = 0; b < miniBatchSize; b++)
   {
     // Getting index of current experiment
-    size_t expId = miniBatch[b];
+    const size_t expId   = miniBatch[b].first;
+    const size_t agentId = miniBatch[b].second;
 
     // Gathering metadata
-    const auto &expPolicy = _expPolicyVector[expId];
-    const auto &curPolicy = _curPolicyVector[expId];
-    const auto &expVtbc = _retraceValueVector[expId];
+    const auto &expReward = _rewardVector[expId][agentId];
+    const auto &expPolicy = _expPolicyVector[expId][agentId];
+    const auto &curPolicy = _curPolicyVector[expId][agentId];
+    const auto &importanceWeights = _importanceWeightVector[expId];
+    const auto &expVtbc = _retraceValueVector[expId][agentId];
+    const auto &isOnPolicy = _isOnPolicyVector[expId][agentId];
+    std::vector<float> expValues = _stateValueVector[expId];
 
     // .. if cooporative setting average value function
-    std::vector<float> expV = _stateValueVector[expId];
     if (_multiAgentRelationship == "Cooperation")
     {
-      float avgV = std::accumulate(expV.begin(), expV.end(), 0.);
+      float avgV = std::accumulate(expValues.begin(), expValues.end(), 0.);
       avgV /= _problem->_agentsPerEnvironment;
-      expV = std::vector<float>(_problem->_agentsPerEnvironment, avgV);
+      expValues = std::vector<float>(_problem->_agentsPerEnvironment, avgV);
     }
 
-    // If Multi Agent Correlation calculate product of importance weights
-    float logProdImportanceWeight = 0.0f;
-    if (_multiAgentCorrelation)
+    const auto &expV = expValues[agentId];
+
+    // Storage for the update gradient
+    std::vector<float> gradientLoss(1 + _policyParameterCount, 0.0f);
+
+    // Gradient of Value Function V(s) (eq. (9); *-1 because the optimizer is maximizing)
+    gradientLoss[0] = expVtbc - expV;
+
+    //Gradient has to be divided by Number of Agents in Cooperation models
+    if (_multiAgentRelationship == "Cooperation")
+      gradientLoss[0] /= _problem->_agentsPerEnvironment;
+
+    // Check gradient
+    if (std::isfinite(gradientLoss[0]) == false)
+      KORALI_LOG_ERROR("Gradient loss for value returned an invalid value: %f\n", gradientLoss[0]);
+
+    // Compute policy gradient only if inside trust region (or offPolicy disabled)
+    if ( isOnPolicy )
     {
-      for (size_t d = 0; d < _problem->_agentsPerEnvironment; d++)
-        logProdImportanceWeight += std::log(_importanceWeightVector[expId][d]);
-    }
-    float prodImportanceWeight = std::exp(logProdImportanceWeight);
+      // Qret for terminal state is just reward
+      float Qret = getScaledReward(expReward, agentId);
 
-    // No Inner Loop for Self
-    size_t numOtherExperiences = _problem->_agentsPerEnvironment;
-    if( miniBatchSize == policyDataSize )
-      numOtherExperiences = 1;
-
-    for (size_t d = 0; d < numOtherExperiences; d++)
-    {
-      // Get Agent Id for Experience
-      size_t agentExpId = d;
-      if( _multiAgentSampling == "Single" )
-        agentExpId = _sampledAgentIds[b + d * _problem->_agentsPerEnvironment];
-      if( miniBatchSize == policyDataSize )
-        agentExpId = policyIdx;
-
-      // Storage for the update gradient
-      std::vector<float> gradientLoss(1 + _policyParameterCount, 0.0f);
-
-      // Gradient of Value Function V(s) (eq. (9); *-1 because the optimizer is maximizing)
-      gradientLoss[0] = expVtbc[agentExpId] - expV[agentExpId];
-
-      //Gradient has to be divided by Number of Agents in Cooperation models
-      if (_multiAgentRelationship == "Cooperation")
-        gradientLoss[0] /= _problem->_agentsPerEnvironment;
-
-      // Compute policy gradient only if inside trust region (or offPolicy disabled)
-      if (_isOnPolicyVector[expId][agentExpId])
+      // If experience is non-terminal, add Vtbc
+      if (_terminationVector[expId] == e_nonTerminal)
       {
-        // Qret for terminal state is just reward
-        float Qret = getScaledReward(_rewardVector[expId][agentExpId], agentExpId);
+        float nextExpVtbc = _retraceValueVector[expId + 1][agentId];
+        Qret += _discountFactor * nextExpVtbc;
+      }
 
-        // If experience is non-terminal, add Vtbc
-        if (_terminationVector[expId] == e_nonTerminal)
-        {
-          float nextExpVtbc = _retraceValueVector[expId + 1][agentExpId];
-          Qret += _discountFactor * nextExpVtbc;
-        }
+      // If experience is truncated, add truncated state value
+      if (_terminationVector[expId] == e_truncated)
+      {
+        float nextExpVtbc = _truncatedStateValueVector[expId][agentId];
+        Qret += _discountFactor * nextExpVtbc;
+      }
 
-        // If experience is truncated, add truncated state value
-        if (_terminationVector[expId] == e_truncated)
-        {
-          float nextExpVtbc = _truncatedStateValueVector[expId][agentExpId];
-          Qret += _discountFactor * nextExpVtbc;
-        }
+      // Compute Off-Policy Objective (eq. 5)
+      float lossOffPolicy = Qret - expV;
 
-        // Compute Off-Policy Objective (eq. 5)
-        float lossOffPolicy = Qret - expV[agentExpId];
+      // Compute Policy Gradient wrt Params
+      auto polGrad = calculateImportanceWeightGradient(curPolicy, expPolicy);
 
-        // Compute Policy Gradient wrt Params
-        auto polGrad = calculateImportanceWeightGradient(curPolicy[agentExpId], expPolicy[agentExpId]);
-
-        // If multi-agent correlation, multiply with additional factor
+      // If multi-agent correlation, multiply with additional factor
+      if (_multiAgentCorrelation)
+      {
+        // If Multi Agent Correlation calculate product of importance weights
+        float logProdImportanceWeight = 0.0f;
         if (_multiAgentCorrelation)
         {
-          float correlationFactor = prodImportanceWeight / _importanceWeightVector[expId][agentExpId];
-          for (size_t i = 0; i < polGrad.size(); i++)
-            polGrad[i] *= correlationFactor;
+          for (size_t d = 0; d < _problem->_agentsPerEnvironment; d++)
+            logProdImportanceWeight += std::log(importanceWeights[d]);
         }
-
-        // Set Gradient of Loss wrt Params
-        for (size_t i = 0; i < _policyParameterCount; i++)
-        {
-          // '-' because the optimizer is maximizing
-          gradientLoss[1 + i] = _experienceReplayOffPolicyREFERCurrentBeta[agentExpId] * lossOffPolicy * polGrad[i];
-        }
+        float prodImportanceWeight = std::exp(logProdImportanceWeight);
+        float correlationFactor = prodImportanceWeight / importanceWeights[agentId];
+        for (size_t i = 0; i < polGrad.size(); i++)
+          polGrad[i] *= correlationFactor;
       }
 
-      // Compute derivative of kullback-leibler divergence wrt current distribution params
-      auto klGrad = calculateKLDivergenceGradient(expPolicy[agentExpId], curPolicy[agentExpId]);
-
+      // Set Gradient of Loss wrt Params
       for (size_t i = 0; i < _policyParameterCount; i++)
       {
-        // Step towards old policy (gradient pointing to larger difference between old and current policy)
-        gradientLoss[1 + i] -= (1.0f - _experienceReplayOffPolicyREFERCurrentBeta[agentExpId]) * klGrad[i];
-
-        if (std::isfinite(gradientLoss[i]) == false)
-          KORALI_LOG_ERROR("Gradient loss returned an invalid value: %f\n", gradientLoss[i]);
+        // '-' because the optimizer is maximizing
+        gradientLoss[1 + i] = _experienceReplayOffPolicyREFERCurrentBeta[agentId] * lossOffPolicy * polGrad[i];
       }
-      // Set Gradient of Loss as Solution
-      _criticPolicyProblem[policyIdx]->_solutionData[b + d * _problem->_agentsPerEnvironment] = gradientLoss;
     }
+
+    // Compute derivative of kullback-leibler divergence wrt current distribution params
+    auto klGrad = calculateKLDivergenceGradient(expPolicy, curPolicy);
+
+    for (size_t i = 0; i < _policyParameterCount; i++)
+    {
+      // Step towards old policy (gradient pointing to larger difference between old and current policy)
+      gradientLoss[1 + i] -= (1.0f - _experienceReplayOffPolicyREFERCurrentBeta[agentId]) * klGrad[i];
+
+      if (std::isfinite(gradientLoss[1 + i]) == false)
+        KORALI_LOG_ERROR("Gradient loss returned an invalid value: %f\n", gradientLoss[i]);
+    }
+
+    // Set Gradient of Loss as Solution
+    _criticPolicyProblem[policyIdx]->_solutionData[b] = gradientLoss;
 
     // Update statistics
-    for(size_t p = 0; p < _problem->_policiesPerEnvironment; ++p)
-    {
-        _statisticsAverageInverseTemperature += (curPolicy[p].distributionParameters[_problem->_actionCount]/(float)_problem->_policiesPerEnvironment);
-        
-        float unlikeability = 1.0;
-        for(size_t i = 0; i < _problem->_actionCount; ++i)
-            unlikeability -= curPolicy[p].actionProbabilities[i] * curPolicy[p].actionProbabilities[i];
-        _statisticsAverageActionUnlikeability += (unlikeability/(float)_problem->_policiesPerEnvironment);
-    }
+    _statisticsAverageInverseTemperature += curPolicy.distributionParameters[_problem->_actionCount];
+    
+    float unlikeability = 1.0;
+    for(size_t i = 0; i < _problem->_actionCount; ++i)
+      unlikeability -= curPolicy.actionProbabilities[i] * curPolicy.actionProbabilities[i];
+    _statisticsAverageActionUnlikeability += unlikeability;
   }
 
   // Compute statistics
   _statisticsAverageInverseTemperature /= (float)miniBatchSize;
   _statisticsAverageActionUnlikeability /= (float)miniBatchSize;
-}
-
-float dVRACER::calculateStateValue(const std::vector<float> &state, size_t policyIdx)
-{
-  // Forward the neural network for this state to get the state value
-  const auto evaluation = _criticPolicyLearner[policyIdx]->getEvaluation({{state}});
-  return evaluation[0][0];
 }
 
 void dVRACER::runPolicy(const std::vector<std::vector<std::vector<float>>> &stateBatch, std::vector<policy_t> &policyInfo, const size_t policyIdx)
@@ -354,28 +340,6 @@ void dVRACER::runPolicy(const std::vector<std::vector<std::vector<float>>> &stat
     policyInfo[b].actionProbabilities = pActions;
     policyInfo[b].distributionParameters = qValAndInvTemp;
   }
-}
-
-std::vector<policy_t> dVRACER::getPolicyInfo(const std::vector<size_t> &miniBatch) const
-{
-  // Getting mini batch size
-  const size_t miniBatchSize = miniBatch.size();
-
-  // Allocating policy sequence vector
-  std::vector<policy_t> policyInfo(miniBatchSize * _problem->_agentsPerEnvironment);
-
-#pragma omp parallel for
-  for (size_t b = 0; b < miniBatchSize; b++)
-  {
-    // Getting current expId
-    const size_t expId = miniBatch[b];
-
-    // Filling policy information
-    for (size_t d = 0; d < _problem->_agentsPerEnvironment; d++)
-      policyInfo[b * _problem->_agentsPerEnvironment + d] = _expPolicyVector[expId][d];
-  }
-
-  return policyInfo;
 }
 
 knlohmann::json dVRACER::getAgentPolicy()

@@ -209,11 +209,11 @@ class Agent : public Solver
   */
    int _multiAgentCorrelation;
   /**
-  * @brief Specifies whether we are in an individual setting or collaborator setting.
+  * @brief Specifies how the experiences for the updates are sampled (see generateMiniBatch()).
   */
    std::string _multiAgentSampling;
   /**
-  * @brief Specifies whether we are in an individual setting or collaborator setting.
+  * @brief Specifies which experiences are taken into account to updated multiple policies.
   */
    std::string _multiPolicyUpdate;
   /**
@@ -352,10 +352,6 @@ class Agent : public Solver
   * @brief [Internal Use] Contains the standard deviations of the states. They will be scaled by this value in order to normalize the state distribution in the RM.
   */
    std::vector<std::vector<float>> _stateRescalingSigmas;
-  /**
-  * @brief [Internal Use] Vector containing the agent ids that were sampled to get the experience in the Multi Agent Sampling Single setting.
-  */
-   std::vector<size_t> _sampledAgentIds;
   /**
   * @brief [Termination Criteria] The solver will stop when the given number of episodes have been run.
   */
@@ -662,26 +658,19 @@ class Agent : public Solver
    * @param miniBatchSize Size of the mini batch to create
    * @return A vector with the indexes to the experiences in the mini batch
    */
-  std::vector<size_t> generateMiniBatch(size_t miniBatchSize);
+  std::vector<std::pair<size_t,size_t>> generateMiniBatch();
 
   /**
    * @brief Updates the state value, retrace, importance weight and other metadata for a given minibatch of experiences
    * @param miniBatch The mini batch of experience ids to update
    * @param policyData The policy to use to evaluate the experiences
    */
-  void updateExperienceMetadata(const std::vector<size_t> &miniBatch, const std::vector<policy_t> &policyData, const size_t policyIdx);
+  void updateExperienceMetadata(std::vector<std::pair<size_t,size_t>> &miniBatch, const std::vector<policy_t> &policyData, const size_t policyIdx);
 
   /**
    * @brief Resets time sequence within the agent, to forget past actions from other episodes
    */
   void resetTimeSequence();
-
-  /**
-   * @brief Function to pass a state time series through the NN and calculates the action probabilities, along with any additional information
-   * @param stateBatch The batch of state time series (Format: BxTxS, B is batch size, T is the time series lenght, and S is the state size)
-   * @return A JSON object containing the information produced by the policies given the current state series
-   */
-  virtual float calculateStateValue(const std::vector<float> &state, size_t policyIdx = 0) = 0;
 
   /**
    * @brief Function to pass a state time series through the NN and calculates the action probabilities, along with any additional information
@@ -703,7 +692,7 @@ class Agent : public Solver
    * @param includeAction Specifies whether to include the experience's action in the sequence
    * @return The time step vector of states
    */
-  std::vector<std::vector<std::vector<float>>> getMiniBatchStateSequence(const std::vector<size_t> &miniBatch, const bool includeAction = false);
+  std::vector<std::vector<std::vector<float>>> getMiniBatchStateSequence(const std::vector<std::pair<size_t,size_t>> &miniBatch);
 
   /**
    * @brief Gets a vector of states corresponding of time sequence corresponding to the provided second-to-last experience index for which a truncated state exists

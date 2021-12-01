@@ -49,20 +49,18 @@ initEnvironment(e, args.env, args.multpolicies)
 
 e["Solver"]["Type"] = "Agent / Continuous / VRACER"
 e["Solver"]["Mode"] = "Training"
-e["Solver"]["Episodes Per Generation"] = 10
+e["Solver"]["Episodes Per Generation"] = 1
 e["Solver"]["Experiences Between Policy Updates"] = 1
 e["Solver"]["Learning Rate"] = args.lr
 e["Solver"]["Discount Factor"] = 0.995
-e["Solver"]["Mini Batch"]["Size"] = 256
+e["Solver"]["Mini Batch"]["Size"] = 1
 e["Solver"]["Multi Agent Relationship"] = 'Individual'
 e["Solver"]["Multi Agent Correlation"] = False
-e["Solver"]["Multi Agent Sampling"] = "Collective"
-e["Solver"]["Multi Policy Update"] = "Self"
+e["Solver"]["Multi Agent Sampling"] = "Tuples"
+e["Solver"]["Multi Policy Update"] = "Off"
 
 if(args.model == '-1'):
 	e["Solver"]["Multi Agent Sampling"] = "Single"
-	if( args.multpolicies == 1 ):
-		sys.exit("Single sampling is not compatible with multiple policies")
 
 if(args.model == '1'):
 	e["Solver"]["Multi Agent Correlation"] = True
@@ -87,7 +85,7 @@ else:
 	print("Environment '{}' not recognized! Exit..".format(args.env))
 	sys.exit()
 
-e["Solver"]["Experience Replay"]["Start Size"] = 131072
+e["Solver"]["Experience Replay"]["Start Size"] = 16 #131072
 #e["Solver"]["Experience Replay"]["Start Size"] = 500
 e["Solver"]["Experience Replay"]["Maximum Size"] = 262144
 #e["Solver"]["Experience Replay"]["Maximum Size"] = 2000
