@@ -16,6 +16,11 @@ namespace solver
 
 void Agent::initialize()
 {
+  // Check compatibility of settings
+  if( (_multiAgentSampling == "Experiences" || _multiPolicyUpdate == "Together") && _problem->_policiesPerEnvironment != 1 )
+    KORALI_LOG_ERROR("Sampling experiences is not compatible with multiple policies.\n");
+
+  // Get variable count
   _variableCount = _k->_variables.size();
   
   // Getting problem pointer
@@ -680,7 +685,7 @@ std::vector<std::pair<size_t,size_t>> Agent::generateMiniBatch()
   size_t expId, agentId;  
   for ( size_t b = 0; b < _miniBatchSize; b++ )
   {
-    if( (_multiAgentSampling == "Agents") || (_multiAgentSampling == "Tuples") )
+    if( _multiAgentSampling == "Tuples" )
     {
       // Producing random (uniform) number for the selection of the experience
       x = _uniformGenerator->getRandomNumber();
@@ -692,27 +697,27 @@ std::vector<std::pair<size_t,size_t>> Agent::generateMiniBatch()
     // Get agentId and set expId
     for( size_t a = 0; a < _problem->_agentsPerEnvironment; a++ )
     {
-      if( _multiAgentSampling == "Tuples" )
-      {
-        agentId = a;
-      }
-
-      if( (_multiAgentSampling == "Agents") || (_multiAgentSampling == "Experiences" ) )
-      {
-        // Producing random (uniform) number for the selection of the agent
-        x = _uniformGenerator->getRandomNumber();
-
-        // Selecting agent
-        agentId = std::floor(x * (float)(_problem->_agentsPerEnvironment - 1));
-      }
-
-      if( _multiAgentSampling == "Experiences" )
+      if( (_multiAgentSampling == "Experiences") || (_multiAgentSampling == "Agents") )
       {
         // Producing random (uniform) number for the selection of the experience
         x = _uniformGenerator->getRandomNumber();
 
         // Selecting experience
         expId = std::floor(x * (float)(_stateVector.size() - 1));
+      }
+
+      if( (_multiAgentSampling == "Tuples") || (_multiAgentSampling == "Agents") )
+      {
+        agentId = a;
+      }
+
+      if( _multiAgentSampling == "Experiences" )
+      {
+        // Producing random (uniform) number for the selection of the agent
+        x = _uniformGenerator->getRandomNumber();
+
+        // Selecting agent
+        agentId = std::floor(x * (float)(_problem->_agentsPerEnvironment - 1));
       }
 
       miniBatch[ a * _miniBatchSize + b ].first  = expId;
@@ -919,7 +924,7 @@ void Agent::updateExperienceMetadata( std::vector<std::pair<size_t,size_t>> &min
     size_t nextExpId = miniBatch[i + 1].first;
     size_t curEpisode  = _episodeIdVector[currExpId];
     size_t nextEpisode = _episodeIdVector[nextExpId];
-    if (curEpisode != nextEpisode)
+    if ( (curEpisode != nextEpisode) && (miniBatch[i].second == miniBatch[i + 1].second) )
     {
       retraceMiniBatch.push_back(miniBatch[i]);
       retraceMiniBatchId.push_back(i);
@@ -1868,6 +1873,7 @@ void Agent::setConfiguration(knlohmann::json& js)
  if (_multiPolicyUpdate == "Off") validOption = true; 
  if (_multiPolicyUpdate == "Own") validOption = true; 
  if (_multiPolicyUpdate == "All") validOption = true; 
+ if (_multiPolicyUpdate == "Together") validOption = true; 
  if (validOption == false) KORALI_LOG_ERROR(" + Unrecognized value (%s) provided for mandatory setting: ['Multi Policy Update'] required by agent.\n", _multiPolicyUpdate.c_str()); 
 }
    eraseValue(js, "Multi Policy Update");

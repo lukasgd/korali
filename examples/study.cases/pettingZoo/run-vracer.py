@@ -60,7 +60,7 @@ e["Solver"]["Multi Agent Sampling"] = "Tuples"
 e["Solver"]["Multi Policy Update"] = "Off"
 
 if(args.model == '-1'):
-	e["Solver"]["Multi Agent Sampling"] = "Single"
+	e["Solver"]["Multi Agent Sampling"] = "Experience"
 
 if(args.model == '1'):
 	e["Solver"]["Multi Agent Correlation"] = True

@@ -35,6 +35,8 @@ void VRACER::initializeAgent()
     _criticPolicyExperiment[p]["Problem"]["Type"] = "Supervised Learning";
     _criticPolicyExperiment[p]["Problem"]["Max Timesteps"] = _timeSequenceLength;
     _criticPolicyExperiment[p]["Problem"]["Training Batch Size"] = _miniBatchSize;
+    if( _multiPolicyUpdate == "Together" )
+      _criticPolicyExperiment[p]["Problem"]["Training Batch Size"] = _miniBatchSize * _problem->_agentsPerEnvironment;
     _criticPolicyExperiment[p]["Problem"]["Inference Batch Size"] = 1;
     _criticPolicyExperiment[p]["Problem"]["Input"]["Size"] = _problem->_stateVectorSize;
     _criticPolicyExperiment[p]["Problem"]["Solution"]["Size"] = 1 + _policyParameterCount;
@@ -76,7 +78,7 @@ void VRACER::initializeAgent()
 void VRACER::trainPolicy()
 {
   // Obtaining minibatch of experiences
-  const auto miniBatch = generateMiniBatch();
+  auto miniBatch = generateMiniBatch();
 
   // Gathering state sequences for selected minibatch
   const auto stateSequence = getMiniBatchStateSequence(miniBatch);
@@ -89,7 +91,7 @@ void VRACER::trainPolicy()
     if( _multiPolicyUpdate == "All" && p == a )
       continue;
 
-    if( _multiPolicyUpdate == "Self" && p != a )
+    if( _multiPolicyUpdate == "Own" && p != a )
       continue;
 
     // Running policy NN on the Minibatch experiences
@@ -142,6 +144,28 @@ void VRACER::trainPolicy()
       // Now applying gradients to update policy NN
       _criticPolicyLearner[p]->runGeneration();
     }
+  }
+
+  // Update using a large minibatch
+  if( _multiPolicyUpdate == "Together" )
+  {
+    // Running policy NN on the Minibatch experiences
+    std::vector<policy_t> policyInfo;
+
+    // Forward Mini Batch
+    runPolicy(stateSequence, policyInfo, 0);
+
+    // Update Metadata and everything needed for gradient computation
+    updateExperienceMetadata(miniBatch, policyInfo, 0);
+
+    // Now calculating policy gradients
+    calculatePolicyGradients(miniBatch, policyInfo, 0);
+
+    // Updating learning rate for critic/policy learner guided by REFER
+    _criticPolicyLearner[0]->_learningRate = _currentLearningRate;
+
+    // Now applying gradients to update policy NN
+    _criticPolicyLearner[0]->runGeneration();
   }
 }
 

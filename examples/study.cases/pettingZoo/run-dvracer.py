@@ -54,11 +54,11 @@ e["Solver"]["Discount Factor"] = 0.995
 e["Solver"]["Mini Batch"]["Size"] = 256
 e["Solver"]["Multi Agent Relationship"] = 'Individual'
 e["Solver"]["Multi Agent Correlation"] = False
-e["Solver"]["Multi Agent Sampling"] = "Collective"
-e["Solver"]["Multi Policy Update"] = "Self"
+e["Solver"]["Multi Agent Sampling"] = "Tuples"
+e["Solver"]["Multi Policy Update"] = "Off"
 
 if(args.model == '-1'):
-	e["Solver"]["Multi Agent Sampling"] = "Single"
+	e["Solver"]["Multi Agent Sampling"] = "Experience"
 	if( args.multpolicies == 1 ):
 		sys.exit("Single sampling is not compatible with multiple policies")
 
