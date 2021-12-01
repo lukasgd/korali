@@ -1,12 +1,12 @@
 #!/bin/bash -l
 
-if [ $# -lt 1 ] ; then
+if [ $# -lt 2 ] ; then
 echo "Usage: ./submit_greasy.sh RUNNAME"
 exit 1
 fi
 
 # create base folder for running and move necessary files
-RUNNAME=$1
+RUNNAME=$2
 BASEPATH="${SCRATCH}/korali"
 FOLDERNAME=${BASEPATH}/${RUNNAME}
 mkdir -p ${FOLDERNAME}
@@ -21,44 +21,58 @@ source settings.sh
 let NUMNODES=0
 
 # Write continuous env tasks
-for env in Multiwalker Waterworld
+for env in  Waterworld
 do
-    for model in 0 1 3 4
+    for model in 0 
     do
         for run in 0 
         do
-            for multi in 0
+            for mpupdate in 0 1
             do
-                RUNFOLDER=${FOLDERNAME}/${env}_${model}_${multi}
-                mkdir -p ${RUNFOLDER}
-                cp run-vracer.py ${RUNFOLDER}
-                cp -r _model/ ${RUNFOLDER}
-                cat << EOF >> tasks.txt
-[@ ${RUNFOLDER}/ @] python3 run-vracer.py --env "$env" --dis "$DIS" --l2 $L2 --opt $OPT --lr $LR --model '$model' --run $run --multpolicies $multi >  ${env}_${model}_${multi}_${run}.txt
+                for multi in 0  
+                do
+                    for masampling in 0 1 2
+                    do
+
+                        RUNFOLDER=${FOLDERNAME}/${env}_${model}_${multi}_${mpupdate}_${masampling}
+                        mkdir -p ${RUNFOLDER}
+                        cp run-vracer.py ${RUNFOLDER}
+                        cp -r _model/ ${RUNFOLDER}
+                        cat << EOF >> tasks.txt
+[@ ${RUNFOLDER}/ @] python3 run-vracer.py --env "$env" --dis "$DIS" --l2 $L2 --opt $OPT --lr $LR --model '$model' --run $run --multpolicies $multi --mpupdate $mpupdate --masampling $masampling >  log_${run}.txt
 EOF
-                let NUMNODES++
+                        let NUMNODES++
+                    done
+                done
             done
         done
     done
 done
 
 # Write discrete env tasks
-for env in Pursuit
+for env in  Pursuit
 do
-    for model in 0 1 3 4
+    for model in 0 
     do
         for run in 0 
         do
-            for multi in 0
+            for mpupdate in 0 1
             do
-                RUNFOLDER=${FOLDERNAME}/${env}_${model}_${multi}
-                mkdir -p ${RUNFOLDER}
-                cp run-dvracer.py ${RUNFOLDER}
-                cp -r _model/ ${RUNFOLDER}
-                cat << EOF >> tasks.txt
-[@ ${RUNFOLDER}/ @] python3 run-dvracer.py --env "$env" --l2 $L2 --opt $OPT --lr $LR --model '$model' --nn $NN --run $run --multpolicies $multi >  ${env}_${model}_${multi}_${run}.txt
+                for multi in 0  
+                do
+                    for masampling in 0 1 2
+                    do
+
+                        RUNFOLDER=${FOLDERNAME}/${env}_${model}_${multi}_${mpupdate}_${masampling}
+                        mkdir -p ${RUNFOLDER}
+                        cp run-dvracer.py ${RUNFOLDER}
+                        cp -r _model/ ${RUNFOLDER}
+                        cat << EOF >> tasks.txt
+[@ ${RUNFOLDER}/ @] python3 run-dvracer.py --env "$env" --dis "$DIS" --l2 $L2 --opt $OPT --lr $LR --model '$model' --run $run --multpolicies $multi --mpupdate $mpupdate --masampling $masampling >  log_${run}.txt
 EOF
-                let NUMNODES++
+                        let NUMNODES++
+                    done
+                done
             done
         done
     done

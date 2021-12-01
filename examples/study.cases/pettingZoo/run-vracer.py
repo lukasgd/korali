@@ -20,6 +20,9 @@ parser.add_argument('--run', help='Run Number', required=False, type=int, defaul
 parser.add_argument('--multpolicies', help='If set to 1, train with N policies', required=False, type=int, default = 0)
 parser.add_argument('--expsharing', help='If set to 1, use experiences from all agents to train N policies', required=False, type=int, default = 0)
 parser.add_argument('--model', help='Model Number', required=False, type=str, default = '')
+parser.add_argument('--mpupdate', help = 'Multi Policy Update', required = False,type = int, default=0)
+parser.add_argument('--masampling', help = 'Multi Agent Sampling', required = False,type = int, default=0)
+
 #model '-1' baseline Independent
 #model '0' or '' conditional MA Individualist 
 #model '1' MA Individualist
@@ -57,9 +60,22 @@ e["Solver"]["Mini Batch"]["Size"] = 1
 e["Solver"]["Multi Agent Relationship"] = 'Individual'
 e["Solver"]["Multi Agent Correlation"] = False
 e["Solver"]["Multi Agent Sampling"] = "Tuples"
-e["Solver"]["Multi Policy Update"] = "Off"
+e["Solver"]["Multi Policy Update"] = "Together"
 
-if(args.model == '-1'):
+if(args.mpupdate == 1):
+	e["Solver"]["Multi Policy Update"] = "Off"
+elif(args.mpupdate == 2):
+	e["Solver"]["Multi Policy Update"] = "Own"
+elif(args.mpupdate == 3):
+	e["Solver"]["Multi Policy Update"] = "All"
+
+
+if(args.masampling == 1):
+	e["Solver"]["Multi Agent Sampling"] = "Agents"
+
+
+
+if(args.model == '-1') or (args.masampling == 2):
 	e["Solver"]["Multi Agent Sampling"] = "Experience"
 
 if(args.model == '1'):
@@ -85,7 +101,7 @@ else:
 	print("Environment '{}' not recognized! Exit..".format(args.env))
 	sys.exit()
 
-e["Solver"]["Experience Replay"]["Start Size"] = 16 #131072
+e["Solver"]["Experience Replay"]["Start Size"] = 131072
 #e["Solver"]["Experience Replay"]["Start Size"] = 500
 e["Solver"]["Experience Replay"]["Maximum Size"] = 262144
 #e["Solver"]["Experience Replay"]["Maximum Size"] = 2000
