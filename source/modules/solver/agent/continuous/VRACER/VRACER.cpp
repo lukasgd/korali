@@ -84,68 +84,6 @@ void VRACER::trainPolicy()
   const auto stateSequence = getMiniBatchStateSequence(miniBatch);
 
   /* Forward Policy, compute Gradient, and perform Backpropagation */
-  for (size_t p = 0; p < _problem->_policiesPerEnvironment; p++)
-  for (size_t a = 0; a < _problem->_agentsPerEnvironment; a++)
-  {
-    // Skip iterations depending on case
-    if( _multiPolicyUpdate == "All" && p == a )
-      continue;
-
-    if( _multiPolicyUpdate == "Own" && p != a )
-      continue;
-
-    // Running policy NN on the Minibatch experiences
-    std::vector<policy_t> policyInfo;
-
-    // Extract minibatch of experiences for agent a
-    std::vector<std::pair<size_t,size_t>> miniBatchTruncated( miniBatch.begin()+a*_miniBatchSize, miniBatch.begin()+(a+1)*_miniBatchSize );
-    const std::vector<std::vector<std::vector<float>>> stateSequenceTruncated( stateSequence.begin()+a*_miniBatchSize, stateSequence.begin()+(a+1)*_miniBatchSize );
-
-    // Forward Mini Batch
-    runPolicy(stateSequenceTruncated, policyInfo, p);
-
-    // Update Metadata and everything needed for gradient computation
-    updateExperienceMetadata(miniBatchTruncated, policyInfo, p);
-
-    // Now calculating policy gradients
-    calculatePolicyGradients(miniBatchTruncated, policyInfo, p);
-
-    // Updating learning rate for critic/policy learner guided by REFER
-    _criticPolicyLearner[p]->_learningRate = _currentLearningRate;
-
-    // Now applying gradients to update policy NN
-    _criticPolicyLearner[p]->runGeneration();
-  }
-
-  // Now updated with own experiences
-  if( _multiPolicyUpdate == "All" )
-  {
-    for (size_t p = 0; p < _problem->_policiesPerEnvironment; p++)
-    {
-      // Running policy NN on the Minibatch experiences
-      std::vector<policy_t> policyInfo;
-
-      // Extract minibatch of experiences for agent p
-      std::vector<std::pair<size_t,size_t>> miniBatchTruncated( miniBatch.begin()+p*_miniBatchSize, miniBatch.begin()+(p+1)*_miniBatchSize );
-      const std::vector<std::vector<std::vector<float>>> stateSequenceTruncated( stateSequence.begin()+p*_miniBatchSize, stateSequence.begin()+(p+1)*_miniBatchSize );
-
-      // Forward Mini Batch
-      runPolicy(stateSequenceTruncated, policyInfo, p);
-
-      // Update Metadata and everything needed for gradient computation
-      updateExperienceMetadata(miniBatchTruncated, policyInfo, p);
-
-      // Now calculating policy gradients
-      calculatePolicyGradients(miniBatchTruncated, policyInfo, p);
-
-      // Updating learning rate for critic/policy learner guided by REFER
-      _criticPolicyLearner[p]->_learningRate = _currentLearningRate;
-
-      // Now applying gradients to update policy NN
-      _criticPolicyLearner[p]->runGeneration();
-    }
-  }
-
   // Update using a large minibatch
   if( _multiPolicyUpdate == "Together" )
   {
@@ -166,6 +104,70 @@ void VRACER::trainPolicy()
 
     // Now applying gradients to update policy NN
     _criticPolicyLearner[0]->runGeneration();
+  }
+  else
+  {
+    for (size_t p = 0; p < _problem->_policiesPerEnvironment; p++)
+    for (size_t a = 0; a < _problem->_agentsPerEnvironment; a++)
+    {
+      // Skip iterations depending on case
+      if( _multiPolicyUpdate == "All" && p == a )
+        continue;
+
+      if( _multiPolicyUpdate == "Own" && p != a )
+        continue;
+
+      // Running policy NN on the Minibatch experiences
+      std::vector<policy_t> policyInfo;
+
+      // Extract minibatch of experiences for agent a
+      std::vector<std::pair<size_t,size_t>> miniBatchTruncated( miniBatch.begin()+a*_miniBatchSize, miniBatch.begin()+(a+1)*_miniBatchSize );
+      const std::vector<std::vector<std::vector<float>>> stateSequenceTruncated( stateSequence.begin()+a*_miniBatchSize, stateSequence.begin()+(a+1)*_miniBatchSize );
+
+      // Forward Mini Batch
+      runPolicy(stateSequenceTruncated, policyInfo, p);
+
+      // Update Metadata and everything needed for gradient computation
+      updateExperienceMetadata(miniBatchTruncated, policyInfo, p);
+
+      // Now calculating policy gradients
+      calculatePolicyGradients(miniBatchTruncated, policyInfo, p);
+
+      // Updating learning rate for critic/policy learner guided by REFER
+      _criticPolicyLearner[p]->_learningRate = _currentLearningRate;
+
+      // Now applying gradients to update policy NN
+      _criticPolicyLearner[p]->runGeneration();
+    }
+
+    // Now updated with own experiences
+    if( _multiPolicyUpdate == "All" )
+    {
+      for (size_t p = 0; p < _problem->_policiesPerEnvironment; p++)
+      {
+        // Running policy NN on the Minibatch experiences
+        std::vector<policy_t> policyInfo;
+
+        // Extract minibatch of experiences for agent p
+        std::vector<std::pair<size_t,size_t>> miniBatchTruncated( miniBatch.begin()+p*_miniBatchSize, miniBatch.begin()+(p+1)*_miniBatchSize );
+        const std::vector<std::vector<std::vector<float>>> stateSequenceTruncated( stateSequence.begin()+p*_miniBatchSize, stateSequence.begin()+(p+1)*_miniBatchSize );
+
+        // Forward Mini Batch
+        runPolicy(stateSequenceTruncated, policyInfo, p);
+
+        // Update Metadata and everything needed for gradient computation
+        updateExperienceMetadata(miniBatchTruncated, policyInfo, p);
+
+        // Now calculating policy gradients
+        calculatePolicyGradients(miniBatchTruncated, policyInfo, p);
+
+        // Updating learning rate for critic/policy learner guided by REFER
+        _criticPolicyLearner[p]->_learningRate = _currentLearningRate;
+
+        // Now applying gradients to update policy NN
+        _criticPolicyLearner[p]->runGeneration();
+      }
+    }
   }
 }
 
