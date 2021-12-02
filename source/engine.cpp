@@ -86,9 +86,6 @@ void Engine::start()
   // Recovering Conduit configuration in case of restart
   _conduit->getConfiguration(_js.getJson()["Conduit"]);
 
-  // Now initializing engine and its experiments
-  initialize();
-
   if (_conduit->isRoot())
   {
     // Adding engine to the stack to support Korali-in-Korali execution
@@ -152,6 +149,7 @@ void Engine::run(Experiment &experiment)
   _experimentVector.clear();
   experiment._k->_engine = this;
   _experimentVector.push_back(experiment._k);
+  initialize();
   start();
 }
 
@@ -163,6 +161,7 @@ void Engine::run(std::vector<Experiment> &experiments)
     experiments[i]._k->_engine = this;
     _experimentVector.push_back(experiments[i]._k);
   }
+  initialize();
   start();
 }
 
