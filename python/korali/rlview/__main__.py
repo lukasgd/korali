@@ -23,7 +23,7 @@ def validateOutput(output):
 
 ##################### Plotting Reward History
 
-def plotRewardHistory(ax, dirs, results, minReward, maxReward, averageDepth, maxObservations, showCI, aggregate,average,label1, dir2 = '', result2 = '', label2 = ''):
+def plotRewardHistory(ax, dirs, results, minReward, maxReward, averageDepth, maxObservations, showCI, aggregate,average,label1,store,savename, dir2 = '', result2 = '', label2 = ''):
 
  ## Setting initial x-axis (episode) and  y-axis (reward) limits
  if (dir2 == ''):
@@ -42,6 +42,7 @@ def plotRewardHistory(ax, dirs, results, minReward, maxReward, averageDepth, max
      for r in results:
       
       if (len(r) == 0): continue  
+      
       cumulativeObsCountHistory = np.cumsum(np.array(r["Solver"]["Training"]["Experience History"]))
       rewardHistory = np.array(r["Solver"]["Training"]["Reward History"])
       trainingRewardThreshold = r["Problem"]["Training Reward Threshold"]
@@ -51,26 +52,30 @@ def plotRewardHistory(ax, dirs, results, minReward, maxReward, averageDepth, max
 
       # Merge Results
       if aggregate == True and len(unpackedResults) > 0:
-        for d in range(rewardHistory.shape[0]):
-            coH, rH, trTh  = unpackedResults[d]
+        for d in range(1):
+            #pdb.set_trace()
+            coH, rH, trTh  = unpackedResults[0]
             aggCumObs = np.append(coH, cumulativeObsCountHistory)
-            aggRewards = np.append(rH, rewardHistory[d])
+            aggRewards = np.append(rH, rewardHistory)
 
             sortedAggRewards = np.array([r for _, r in sorted(zip(aggCumObs, aggRewards), key=lambda pair: pair[0])])
             sortedAggCumObs = np.sort(aggCumObs)
-            unpackedResults[d] = (sortedAggCumObs, sortedAggRewards, trainingRewardThreshold)
+            unpackedResults[0] = (sortedAggCumObs, sortedAggRewards, trainingRewardThreshold)
 
       # Append Results
       else:
-        for d in range(rewardHistory.shape[0]):
-            unpackedResults.append( (cumulativeObsCountHistory, rewardHistory[d], trainingRewardThreshold) )
+        unpackedResults.append((cumulativeObsCountHistory, rewardHistory, trainingRewardThreshold) )
 
      ## Plotting the individual experiment results
      
      for resId, r in enumerate(unpackedResults):
+
+      if store:
+        np.savez(savename, unpackedRes= unpackedResults)
       
       cumulativeObsArr, rewardHistory, trainingRewardThreshold = r
       
+      #pdb.set_trace()
       currObsCount = cumulativeObsArr[-1]
       
       # Updating common plot limits
@@ -78,13 +83,13 @@ def plotRewardHistory(ax, dirs, results, minReward, maxReward, averageDepth, max
       if (currObsCount > maxPlotObservations): maxPlotObservations = currObsCount
       if (maxObservations): maxPlotObservations = int(maxObservations)
 
-      if (min(rewardHistory) < minPlotReward): 
-       if (min(rewardHistory) > -math.inf):
-        minPlotReward = min(rewardHistory)
+      if (rewardHistory.min() < minPlotReward): 
+       if (rewardHistory.min() > -math.inf):
+        minPlotReward = rewardHistory.min()
       
-      if (max(rewardHistory) > maxPlotReward):
-       if (max(rewardHistory) < math.inf):
-        maxPlotReward = max(rewardHistory)
+      if (np.max(rewardHistory) > maxPlotReward):
+       if (np.max(rewardHistory) < math.inf):
+        maxPlotReward =np. max(rewardHistory)
 
       if (trainingRewardThreshold != -math.inf and trainingRewardThreshold != math.inf): 
        if (trainingRewardThreshold > maxPlotReward): maxPlotReward = trainingRewardThreshold
@@ -404,6 +409,10 @@ if __name__ == '__main__':
       help='Average multiple agents and plot result summary.',
       action='store_true')
  parser.add_argument(
+      '--store',
+      help='Average multiple agents and plot result summary.',
+      action='store_true')
+ parser.add_argument(
       '--test',
       help='Run without graphics (for testing purpose)',
       action='store_true',
@@ -414,6 +423,12 @@ if __name__ == '__main__':
       required=False)
  parser.add_argument(
       '--label1',
+      type = str, 
+      default = '',
+      help='Indicates the output file path. If not specified, it prints to screen.',
+      required=False)
+ parser.add_argument(
+      '--savename',
       type = str, 
       default = '',
       help='Indicates the output file path. If not specified, it prints to screen.',
@@ -463,7 +478,7 @@ if __name__ == '__main__':
      
  ### Creating plots
  if args.dir2[0] == '':
-    plotRewardHistory(ax1, args.dir, results, args.minReward, args.maxReward, args.averageDepth, args.maxObservations, args.showCI, args.aggregate, args.average,args.label1)
+    plotRewardHistory(ax1, args.dir, results, args.minReward, args.maxReward, args.averageDepth, args.maxObservations, args.showCI, args.aggregate, args.average,args.label1,args.store, args.savename)
     plt.draw()
  else:
     plotRewardHistory(ax1, args.dir, results, args.minReward, args.maxReward, args.averageDepth, args.maxObservations, args.showCI, args.aggregate, args.average,args.label1, args.dir2, results2, args.label2)

@@ -16,15 +16,15 @@ namespace solver
 
 void Agent::initialize()
 {
-  // Check compatibility of settings
-  if( (_multiAgentSampling == "Experiences" || _multiPolicyUpdate == "Together") && _problem->_policiesPerEnvironment != 1 )
-    KORALI_LOG_ERROR("Sampling experiences is not compatible with multiple policies.\n");
-
   // Get variable count
   _variableCount = _k->_variables.size();
   
   // Getting problem pointer
   _problem = dynamic_cast<problem::ReinforcementLearning *>(_k->_problem);
+
+  // Check compatibility of settings
+  if( (_multiAgentSampling == "Experiences" || _multiPolicyUpdate == "Together") && _problem->_policiesPerEnvironment != 1 )
+    KORALI_LOG_ERROR("Sampling experiences is not compatible with multiple policies.\n");
 
   // Formatting reward history for each agent
   _trainingRewardHistory.resize(_problem->_agentsPerEnvironment);

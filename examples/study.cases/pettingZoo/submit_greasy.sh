@@ -68,7 +68,7 @@ do
                         cp run-dvracer.py ${RUNFOLDER}
                         cp -r _model/ ${RUNFOLDER}
                         cat << EOF >> tasks.txt
-[@ ${RUNFOLDER}/ @] python3 run-dvracer.py --env "$env" --dis "$DIS" --l2 $L2 --opt $OPT --lr $LR --model '$model' --run $run --multpolicies $multi --mpupdate $mpupdate --masampling $masampling >  log_${run}.txt
+[@ ${RUNFOLDER}/ @] python3 run-dvracer.py --env "$env"  --l2 $L2 --opt $OPT --lr $LR --model '$model' --run $run --multpolicies $multi --mpupdate $mpupdate --masampling $masampling >  log_${run}.txt
 EOF
                         let NUMNODES++
                     done

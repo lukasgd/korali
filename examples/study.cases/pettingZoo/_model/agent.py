@@ -7,14 +7,14 @@ import os
 import sys
 from PIL import Image
 import pettingzoo
-import pettingzoo.sisl
+from pettingzoo.sisl import waterworld_v3, multiwalker_v7, pursuit_v3
 import matplotlib.pyplot as plt
 
 def initEnvironment(e, envName, multPolicies):
 
  # Creating environment 
  if (envName ==  'Waterworld'):
-    env = pettingzoo.sisl.waterworld_v3.env()
+    env = waterworld_v3.env()
     stateVariableCount = 242
     actionVariableCount = 2
     ac_upper = 0.01 
@@ -22,7 +22,7 @@ def initEnvironment(e, envName, multPolicies):
     numIndividuals = 5
 
  elif (envName == 'Multiwalker'):
-    env = pettingzoo.sisl.multiwalker_v7.env()
+    env = multiwalker_v7.env()
     stateVariableCount = 31
     actionVariableCount = 4
     ac_upper = 1 
@@ -31,7 +31,7 @@ def initEnvironment(e, envName, multPolicies):
 
 
  elif (envName ==  'Pursuit'):
-   env = pettingzoo.sisl.pursuit_v3.env()
+   env = pursuit_v3.env()
    stateVariableCount = 147
    actionVariableCount = 1
    numIndividuals = 8
