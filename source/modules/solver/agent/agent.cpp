@@ -16,15 +16,15 @@ namespace solver
 
 void Agent::initialize()
 {
-  // Check compatibility of settings
-  if( (_multiAgentSampling == "Experiences" || _multiPolicyUpdate == "Together") && _problem->_policiesPerEnvironment != 1 )
-    KORALI_LOG_ERROR("Sampling experiences is not compatible with multiple policies.\n");
-
   // Get variable count
   _variableCount = _k->_variables.size();
   
   // Getting problem pointer
   _problem = dynamic_cast<problem::ReinforcementLearning *>(_k->_problem);
+
+  // Check compatibility of settings
+  if( (_multiAgentSampling == "Experiences" || _multiPolicyUpdate == "Together") && _problem->_policiesPerEnvironment != 1 )
+    KORALI_LOG_ERROR("Sampling experiences is not compatible with multiple policies.\n");
 
   // Formatting reward history for each agent
   _trainingRewardHistory.resize(_problem->_agentsPerEnvironment);
@@ -542,6 +542,9 @@ void Agent::processEpisode(knlohmann::json &episode)
     }
     _stateValueVector.add(stateValue);
 
+    // Adding placeholder for retrace value (will be updated below)
+    _retraceValueVector.add(std::vector<float>(_problem->_agentsPerEnvironment,0.0f));
+
     /* Story policy information for continuous action spaces */
     if (isDefined(episode["Experiences"][expId], "Policy", "Distribution Parameters"))
     {
@@ -591,9 +594,6 @@ void Agent::processEpisode(knlohmann::json &episode)
     _episodeIdVector.add(episodeId);
     _episodePosVector.add(expId);
 
-    // Adding placeholder for retrace value
-    _retraceValueVector.add(std::vector<float>(_problem->_agentsPerEnvironment, 0.0f)); //TODO: for collaborative we can take size == 1 (DW), Agree (PW)
-
     // If outgoing experience is off policy, subtract off policy counter
     if (_isOnPolicyVector.size() == _experienceReplayMaximumSize)
     for (size_t d = 0; d < _problem->_agentsPerEnvironment; d++)
@@ -639,7 +639,7 @@ void Agent::processEpisode(knlohmann::json &episode)
         runPolicy( {expTruncatedStateSequence}, truncatedPolicyInfo, d );
 
       // Update retV with truncated value
-      retV[d] += truncatedPolicyInfo[0].stateValue;
+      retV[d] = truncatedPolicyInfo[0].stateValue;
 
       // Get value of trucated state
       if (std::isfinite(retV[d]) == false)
@@ -662,6 +662,8 @@ void Agent::processEpisode(knlohmann::json &episode)
     {
       // Calculating retrace value. Importance weight is 1.0f because the policy is current.
       retV[d] = getScaledReward(_rewardVector[expId][d], d) + _discountFactor * retV[d];
+
+      // Update value in replay memory
       _retraceValueVector[expId][d] = retV[d];
     }
   }

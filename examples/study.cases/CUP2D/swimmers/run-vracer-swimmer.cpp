@@ -9,6 +9,7 @@ int main(int argc, char *argv[])
   if (provided != MPI_THREAD_FUNNELED)
   {
     printf("Error initializing MPI\n");
+    fflush(0);
     exit(-1);
   }
 
@@ -101,7 +102,7 @@ int main(int argc, char *argv[])
   e["Solver"]["Mini Batch"]["Size"] =  128;
 
   /// Defining the configuration of replay memory
-  e["Solver"]["Experience Replay"]["Start Size"] = 1024;
+  e["Solver"]["Experience Replay"]["Start Size"] = 16;
   e["Solver"]["Experience Replay"]["Maximum Size"] = 65536;
   e["Solver"]["Experience Replay"]["Off Policy"]["Annealing Rate"] = 5.0e-8;
   e["Solver"]["Experience Replay"]["Off Policy"]["Cutoff Scale"] = 5.0;
@@ -112,6 +113,12 @@ int main(int argc, char *argv[])
   e["Solver"]["Policy"]["Distribution"] = "Clipped Normal";
   e["Solver"]["State Rescaling"]["Enabled"] = true;
   e["Solver"]["Reward"]["Rescaling"]["Enabled"] = true;
+
+  //// Setting Multi-Agent Specific Settings
+  e["Solver"]["Multi Agent Relationship"] = "Individual";
+  e["Solver"]["Multi Agent Correlation"] = false;
+  e["Solver"]["Multi Agent Sampling"] = "Tuples";
+  e["Solver"]["Multi Policy Update"] = "Together";
 
   //// Defining Neural Network
   e["Solver"]["Neural Network"]["Engine"] = "OneDNN";
