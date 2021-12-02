@@ -37,10 +37,6 @@ class ReinforcementLearning : public Problem
   */
    size_t _policiesPerEnvironment;
   /**
-  * @brief Maximum number of different types of environments.
-  */
-   size_t _environmentCount;
-  /**
   * @brief Function to initialize and run an episode in the environment.
   */
    std::uint64_t _environmentFunction;
@@ -48,6 +44,14 @@ class ReinforcementLearning : public Problem
   * @brief Number of actions to take before requesting a new policy.
   */
    size_t _actionsBetweenPolicyUpdates;
+  /**
+  * @brief Number of generations after which the policy will be forcibly tested (even if it does not meet the threshold).
+  */
+   size_t _testingFrequency;
+  /**
+  * @brief Number of test episodes to run the policy (without noise) for, for which the average average sum of rewards will serve to evaluate the termination criteria.
+  */
+   size_t _policyTestingEpisodes;
   /**
   * @brief Any used-defined settings required by the environment.
   */

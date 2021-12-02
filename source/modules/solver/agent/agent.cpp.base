@@ -61,7 +61,6 @@ void __className__::initialize()
   _actionVector.resize(_experienceReplayMaximumSize);
   _retraceValueVector.resize(_experienceReplayMaximumSize);
   _rewardVector.resize(_experienceReplayMaximumSize);
-  _environmentIdVector.resize(_experienceReplayMaximumSize);
   _stateValueVector.resize(_experienceReplayMaximumSize);
   _importanceWeightVector.resize(_experienceReplayMaximumSize);
   _truncatedImportanceWeightVector.resize(_experienceReplayMaximumSize);
@@ -459,9 +458,6 @@ void __className__::processEpisode(knlohmann::json &episode)
 
   // Getting experience count from the episode
   size_t curExperienceCount = episode["Experiences"].size();
-
-  // Getting environment id
-  auto environmentId = episode["Environment Id"].get<size_t>();
 
   // Storage for the episode's cumulative reward
   std::vector<float> cumulativeReward(_problem->_agentsPerEnvironment, 0.0f);
@@ -1081,7 +1077,6 @@ void __className__::serializeExperienceReplay()
     stateJson["Experience Replay"][i]["State"] = _stateVector[i];
     stateJson["Experience Replay"][i]["Action"] = _actionVector[i];
     stateJson["Experience Replay"][i]["Reward"] = _rewardVector[i];
-    stateJson["Experience Replay"][i]["Environment Id"] = _environmentIdVector[i];
     stateJson["Experience Replay"][i]["State Value"] = _stateValueVector[i];
     stateJson["Experience Replay"][i]["Retrace Value"] = _retraceValueVector[i];
     stateJson["Experience Replay"][i]["Importance Weight"] = _importanceWeightVector[i];
@@ -1168,7 +1163,6 @@ void __className__::deserializeExperienceReplay()
   _actionVector.clear();
   _retraceValueVector.clear();
   _rewardVector.clear();
-  _environmentIdVector.clear();
   _stateValueVector.clear();
   _importanceWeightVector.clear();
   _truncatedImportanceWeightVector.clear();
@@ -1231,9 +1225,6 @@ void __className__::printGenerationAfter()
   if (_mode == "Training")
   {
     _k->_logger->logInfo("Normal", "Experience Replay Statistics:\n");
-    if (_problem->_environmentCount > 1)
-      for (size_t i = 0; i < _problem->_environmentCount; ++i)
-        _k->_logger->logInfo("Normal", " + Experience Count Env %zu:      %lu\n", i, _experienceCountPerEnvironment[i]);
 
     _k->_logger->logInfo("Normal", " + Experience Memory Size:      %lu/%lu\n", _stateVector.size(), _experienceReplayMaximumSize);
     if (_maxEpisodes > 0)

@@ -468,15 +468,6 @@ void ReinforcementLearning::setConfiguration(knlohmann::json& js)
  }
   else   KORALI_LOG_ERROR(" + No value provided for mandatory setting: ['Policies Per Environment'] required by reinforcementLearning.\n"); 
 
- if (isDefined(js, "Environment Count"))
- {
- try { _environmentCount = js["Environment Count"].get<size_t>();
-} catch (const std::exception& e)
- { KORALI_LOG_ERROR(" + Object: [ reinforcementLearning ] \n + Key:    ['Environment Count']\n%s", e.what()); } 
-   eraseValue(js, "Environment Count");
- }
-  else   KORALI_LOG_ERROR(" + No value provided for mandatory setting: ['Environment Count'] required by reinforcementLearning.\n"); 
-
  if (isDefined(js, "Environment Function"))
  {
  try { _environmentFunction = js["Environment Function"].get<std::uint64_t>();
@@ -494,6 +485,24 @@ void ReinforcementLearning::setConfiguration(knlohmann::json& js)
    eraseValue(js, "Actions Between Policy Updates");
  }
   else   KORALI_LOG_ERROR(" + No value provided for mandatory setting: ['Actions Between Policy Updates'] required by reinforcementLearning.\n"); 
+
+ if (isDefined(js, "Testing Frequency"))
+ {
+ try { _testingFrequency = js["Testing Frequency"].get<size_t>();
+} catch (const std::exception& e)
+ { KORALI_LOG_ERROR(" + Object: [ reinforcementLearning ] \n + Key:    ['Testing Frequency']\n%s", e.what()); } 
+   eraseValue(js, "Testing Frequency");
+ }
+  else   KORALI_LOG_ERROR(" + No value provided for mandatory setting: ['Testing Frequency'] required by reinforcementLearning.\n"); 
+
+ if (isDefined(js, "Policy Testing Episodes"))
+ {
+ try { _policyTestingEpisodes = js["Policy Testing Episodes"].get<size_t>();
+} catch (const std::exception& e)
+ { KORALI_LOG_ERROR(" + Object: [ reinforcementLearning ] \n + Key:    ['Policy Testing Episodes']\n%s", e.what()); } 
+   eraseValue(js, "Policy Testing Episodes");
+ }
+  else   KORALI_LOG_ERROR(" + No value provided for mandatory setting: ['Policy Testing Episodes'] required by reinforcementLearning.\n"); 
 
  if (isDefined(js, "Custom Settings"))
  {
@@ -560,9 +569,10 @@ void ReinforcementLearning::getConfiguration(knlohmann::json& js)
  js["Type"] = _type;
    js["Agents Per Environment"] = _agentsPerEnvironment;
    js["Policies Per Environment"] = _policiesPerEnvironment;
-   js["Environment Count"] = _environmentCount;
    js["Environment Function"] = _environmentFunction;
    js["Actions Between Policy Updates"] = _actionsBetweenPolicyUpdates;
+   js["Testing Frequency"] = _testingFrequency;
+   js["Policy Testing Episodes"] = _policyTestingEpisodes;
    js["Custom Settings"] = _customSettings;
    js["Action Vector Size"] = _actionVectorSize;
    js["State Vector Size"] = _stateVectorSize;

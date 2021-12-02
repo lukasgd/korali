@@ -65,7 +65,6 @@ void Agent::initialize()
   _actionVector.resize(_experienceReplayMaximumSize);
   _retraceValueVector.resize(_experienceReplayMaximumSize);
   _rewardVector.resize(_experienceReplayMaximumSize);
-  _environmentIdVector.resize(_experienceReplayMaximumSize);
   _stateValueVector.resize(_experienceReplayMaximumSize);
   _importanceWeightVector.resize(_experienceReplayMaximumSize);
   _truncatedImportanceWeightVector.resize(_experienceReplayMaximumSize);
@@ -463,9 +462,6 @@ void Agent::processEpisode(knlohmann::json &episode)
 
   // Getting experience count from the episode
   size_t curExperienceCount = episode["Experiences"].size();
-
-  // Getting environment id
-  auto environmentId = episode["Environment Id"].get<size_t>();
 
   // Storage for the episode's cumulative reward
   std::vector<float> cumulativeReward(_problem->_agentsPerEnvironment, 0.0f);
@@ -1085,7 +1081,6 @@ void Agent::serializeExperienceReplay()
     stateJson["Experience Replay"][i]["State"] = _stateVector[i];
     stateJson["Experience Replay"][i]["Action"] = _actionVector[i];
     stateJson["Experience Replay"][i]["Reward"] = _rewardVector[i];
-    stateJson["Experience Replay"][i]["Environment Id"] = _environmentIdVector[i];
     stateJson["Experience Replay"][i]["State Value"] = _stateValueVector[i];
     stateJson["Experience Replay"][i]["Retrace Value"] = _retraceValueVector[i];
     stateJson["Experience Replay"][i]["Importance Weight"] = _importanceWeightVector[i];
@@ -1172,7 +1167,6 @@ void Agent::deserializeExperienceReplay()
   _actionVector.clear();
   _retraceValueVector.clear();
   _rewardVector.clear();
-  _environmentIdVector.clear();
   _stateValueVector.clear();
   _importanceWeightVector.clear();
   _truncatedImportanceWeightVector.clear();
@@ -1235,9 +1229,6 @@ void Agent::printGenerationAfter()
   if (_mode == "Training")
   {
     _k->_logger->logInfo("Normal", "Experience Replay Statistics:\n");
-    if (_problem->_environmentCount > 1)
-      for (size_t i = 0; i < _problem->_environmentCount; ++i)
-        _k->_logger->logInfo("Normal", " + Experience Count Env %zu:      %lu\n", i, _experienceCountPerEnvironment[i]);
 
     _k->_logger->logInfo("Normal", " + Experience Memory Size:      %lu/%lu\n", _stateVector.size(), _experienceReplayMaximumSize);
     if (_maxEpisodes > 0)
@@ -1351,14 +1342,6 @@ void Agent::setConfiguration(knlohmann::json& js)
 } catch (const std::exception& e)
  { KORALI_LOG_ERROR(" + Object: [ agent ] \n + Key:    ['Training']['Reward History']\n%s", e.what()); } 
    eraseValue(js, "Training", "Reward History");
- }
-
- if (isDefined(js, "Training", "Environment Id History"))
- {
- try { _trainingEnvironmentIdHistory = js["Training"]["Environment Id History"].get<std::vector<size_t>>();
-} catch (const std::exception& e)
- { KORALI_LOG_ERROR(" + Object: [ agent ] \n + Key:    ['Training']['Environment Id History']\n%s", e.what()); } 
-   eraseValue(js, "Training", "Environment Id History");
  }
 
  if (isDefined(js, "Training", "Experience History"))
@@ -1557,14 +1540,6 @@ void Agent::setConfiguration(knlohmann::json& js)
 } catch (const std::exception& e)
  { KORALI_LOG_ERROR(" + Object: [ agent ] \n + Key:    ['Experience Count']\n%s", e.what()); } 
    eraseValue(js, "Experience Count");
- }
-
- if (isDefined(js, "Experience Count Per Environment"))
- {
- try { _experienceCountPerEnvironment = js["Experience Count Per Environment"].get<std::vector<size_t>>();
-} catch (const std::exception& e)
- { KORALI_LOG_ERROR(" + Object: [ agent ] \n + Key:    ['Experience Count Per Environment']\n%s", e.what()); } 
-   eraseValue(js, "Experience Count Per Environment");
  }
 
  if (isDefined(js, "Reward", "Rescaling", "Sigma"))
@@ -1987,7 +1962,6 @@ void Agent::getConfiguration(knlohmann::json& js)
    js["Action Upper Bounds"] = _actionUpperBounds;
    js["Current Episode"] = _currentEpisode;
    js["Training"]["Reward History"] = _trainingRewardHistory;
-   js["Training"]["Environment Id History"] = _trainingEnvironmentIdHistory;
    js["Training"]["Experience History"] = _trainingExperienceHistory;
    js["Testing"]["Average Reward History"] = _testingAverageRewardHistory;
    js["Training"]["Average Reward"] = _trainingAverageReward;
@@ -2013,7 +1987,6 @@ void Agent::getConfiguration(knlohmann::json& js)
    js["Current Sample ID"] = _currentSampleID;
  if(_uniformGenerator != NULL) _uniformGenerator->getConfiguration(js["Uniform Generator"]);
    js["Experience Count"] = _experienceCount;
-   js["Experience Count Per Environment"] = _experienceCountPerEnvironment;
    js["Reward"]["Rescaling"]["Sigma"] = _rewardRescalingSigma;
    js["Reward"]["Rescaling"]["Sum Squared Rewards"] = _rewardRescalingSumSquaredRewards;
    js["State Rescaling"]["Means"] = _stateRescalingMeans;
@@ -2026,7 +1999,7 @@ void Agent::getConfiguration(knlohmann::json& js)
 void Agent::applyModuleDefaults(knlohmann::json& js) 
 {
 
- std::string defaultString = "{\"Episodes Per Generation\": 1, \"Concurrent Environments\": 1, \"Discount Factor\": 0.995, \"Time Sequence Length\": 1, \"Importance Weight Truncation Level\": 1.0, \"Multi Agent Relationship\": \"Individual\", \"Multi Agent Correlation\": false, \"Multi Agent Sampling\": \"Tuples\", \"Multi Policy Update\": \"None\", \"State Rescaling\": {\"Enabled\": false}, \"Reward\": {\"Rescaling\": {\"Enabled\": false}}, \"Mini Batch\": {\"Strategy\": \"Uniform\", \"Size\": 256}, \"L2 Regularization\": {\"Enabled\": false, \"Importance\": 0.0001}, \"Training\": {\"Average Depth\": 100, \"Current Policies\": {}, \"Best Policies\": {}}, \"Testing\": {\"Sample Ids\": [], \"Current Policies\": {}, \"Best Policies\": {}}, \"Termination Criteria\": {\"Max Episodes\": 0, \"Max Experiences\": 0, \"Max Policy Updates\": 0}, \"Experience Replay\": {\"Serialize\": true, \"Off Policy\": {\"Cutoff Scale\": 4.0, \"Target\": 0.1, \"REFER Beta\": 0.3, \"Annealing Rate\": 0.0}}, \"Uniform Generator\": {\"Type\": \"Univariate/Uniform\", \"Minimum\": 0.0, \"Maximum\": 1.0}}";
+ std::string defaultString = "{\"Episodes Per Generation\": 1, \"Concurrent Environments\": 1, \"Discount Factor\": 0.995, \"Time Sequence Length\": 1, \"Importance Weight Truncation Level\": 1.0, \"Multi Agent Relationship\": \"Individual\", \"Multi Agent Correlation\": false, \"Multi Agent Sampling\": \"Tuples\", \"Multi Policy Update\": \"Off\", \"State Rescaling\": {\"Enabled\": false}, \"Reward\": {\"Rescaling\": {\"Enabled\": false}}, \"Mini Batch\": {\"Strategy\": \"Uniform\", \"Size\": 256}, \"L2 Regularization\": {\"Enabled\": false, \"Importance\": 0.0001}, \"Training\": {\"Average Depth\": 100, \"Current Policies\": {}, \"Best Policies\": {}}, \"Testing\": {\"Sample Ids\": [], \"Current Policies\": {}, \"Best Policies\": {}}, \"Termination Criteria\": {\"Max Episodes\": 0, \"Max Experiences\": 0, \"Max Policy Updates\": 0}, \"Experience Replay\": {\"Serialize\": true, \"Off Policy\": {\"Cutoff Scale\": 4.0, \"Target\": 0.1, \"REFER Beta\": 0.3, \"Annealing Rate\": 0.0}}, \"Uniform Generator\": {\"Type\": \"Univariate/Uniform\", \"Minimum\": 0.0, \"Maximum\": 1.0}}";
  knlohmann::json defaultJs = knlohmann::json::parse(defaultString);
  mergeJson(js, defaultJs); 
  Solver::applyModuleDefaults(js);

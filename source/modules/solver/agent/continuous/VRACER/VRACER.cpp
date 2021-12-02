@@ -37,16 +37,16 @@ void VRACER::initializeAgent()
     _criticPolicyExperiment[p]["Problem"]["Training Batch Size"] = _miniBatchSize;
     if( _multiPolicyUpdate == "Together" )
       _criticPolicyExperiment[p]["Problem"]["Training Batch Size"] = _miniBatchSize * _problem->_agentsPerEnvironment;
-    _criticPolicyExperiment[p]["Problem"]["Inference Batch Size"] = 1;
+    _criticPolicyExperiment[p]["Problem"]["Testing Batch Size"] = 1;
     _criticPolicyExperiment[p]["Problem"]["Input"]["Size"] = _problem->_stateVectorSize;
     _criticPolicyExperiment[p]["Problem"]["Solution"]["Size"] = 1 + _policyParameterCount;
 
     _criticPolicyExperiment[p]["Solver"]["Type"] = "Learner/DeepSupervisor";
+    _criticPolicyExperiment[p]["Solver"]["Mode"] = "Training";
     _criticPolicyExperiment[p]["Solver"]["L2 Regularization"]["Enabled"] = _l2RegularizationEnabled;
     _criticPolicyExperiment[p]["Solver"]["L2 Regularization"]["Importance"] = _l2RegularizationImportance;
     _criticPolicyExperiment[p]["Solver"]["Learning Rate"] = _currentLearningRate;
     _criticPolicyExperiment[p]["Solver"]["Loss Function"] = "Direct Gradient";
-    _criticPolicyExperiment[p]["Solver"]["Steps Per Generation"] = 1;
     _criticPolicyExperiment[p]["Solver"]["Neural Network"]["Optimizer"] = _neuralNetworkOptimizer;
     _criticPolicyExperiment[p]["Solver"]["Neural Network"]["Engine"] = _neuralNetworkEngine;
     _criticPolicyExperiment[p]["Solver"]["Neural Network"]["Hidden Layers"] = _neuralNetworkHiddenLayers;
