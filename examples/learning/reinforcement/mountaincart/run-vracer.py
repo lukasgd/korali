@@ -34,8 +34,6 @@ e = korali.Experiment()
 
 e["Problem"]["Type"] = "Reinforcement Learning / Continuous"
 e["Problem"]["Environment Function"] = env
-e["Problem"]["Training Reward Threshold"] = np.inf
-e["Problem"]["Policy Testing Episodes"] = 1
 e["Problem"]["Actions Between Policy Updates"] = 1
 
 e["Variables"][0]["Name"] = "Cart Position X"
@@ -78,7 +76,6 @@ e["Solver"]["Mini Batch"]["Size"] = 256
 
 e["Solver"]["State Rescaling"]["Enabled"] = True
 e["Solver"]["Reward"]["Rescaling"]["Enabled"] = True
-
 e["Solver"]["L2 Regularization"]["Enabled"] = False
 
 ### Configuring the neural network and its hidden layers
@@ -113,13 +110,3 @@ e["File Output"]["Path"] = '_korali_results_{}'.format(e["Solver"]["Policy"]["Di
 ### Running Experiment
 
 k.run(e)
-
-### Now we run a few test samples and check their reward
-
-e["Solver"]["Mode"] = "Testing"
-e["Solver"]["Testing"]["Sample Ids"] = list(range(5))
-
-k.run(e)
-
-averageTestReward = np.average(e["Solver"]["Testing"]["Reward"])
-print("Average Reward: " + str(averageTestReward))

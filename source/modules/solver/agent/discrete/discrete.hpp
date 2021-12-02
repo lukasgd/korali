@@ -70,7 +70,6 @@ class Discrete : public Agent
    * @param oldPolicy old policy object from RM
    * @return gradient of importance weight wrt NN output (q_i's and inverse temperature)
    */
-
   std::vector<float> calculateImportanceWeightGradient(const policy_t &curPolicy, const policy_t &oldPolicy);
 
   /**

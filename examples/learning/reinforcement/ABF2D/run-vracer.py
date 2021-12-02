@@ -17,8 +17,6 @@ setResultsDir('_result_vracer')
 
 e["Problem"]["Type"] = "Reinforcement Learning / Continuous"
 e["Problem"]["Environment Function"] = env
-e["Problem"]["Training Reward Threshold"] = 50.0
-e["Problem"]["Policy Testing Episodes"] = 20
 
 ### Defining state variables
 
@@ -75,11 +73,8 @@ e["Solver"]["Neural Network"]["Hidden Layers"][2]["Output Channels"] = 64
 e["Solver"]["Neural Network"]["Hidden Layers"][3]["Type"] = "Layer/Activation"
 e["Solver"]["Neural Network"]["Hidden Layers"][3]["Function"] = "Elementwise/Tanh"
 
-### Defining Termination Criteria
-
-e["Solver"]["Termination Criteria"]["Testing"]["Target Average Reward"] = 50.0
-
 ### If this is test mode, run only a couple generations
+e["Solver"]["Termination Criteria"]["Max Generations"] = 50
 if len(sys.argv) == 2:
  if sys.argv[1] == '--test':
   e["Solver"]["Termination Criteria"]["Max Generations"] = 5

@@ -47,11 +47,6 @@ class __className__ : public __parentClassName__
    */
   std::vector<int> _rankToWorkerMap;
 
-  /**
-   * @brief Checks whether the number of MPI workers satisfies the requirement
-   */
-  void checkRankCount();
-
   void initServer() override;
   void initialize() override;
   void terminateServer() override;
@@ -71,6 +66,8 @@ class __className__ : public __parentClassName__
    */
   int getRootRank();
   bool isRoot() override;
+  bool isWorkerLeadRank() override;
+  size_t getWorkerCount() override;
 };
 
 __endNamespace__;

@@ -14,8 +14,21 @@ As example potential is the Lennard-Jones potential as well as its harmonic appr
 Example
 -------
 
-Verbous example with Newton policy  :math:`a=-dV(r)/dr / \|dV(r)/dr\|` and visualisation turned on can be run using 
+Verbous example with a trivial policy  :math:`a=[1,0,0]` and visualisation turned on can be run using 
 
 .. code-block:: bash
 
   	python main.py --visualize 1 --numIndividuals 10 --numTimesteps 100 --numNearestNeighbours 5
+
+
+The Reinforcement Learning can be ran using 
+
+.. code-block:: bash
+
+	python run-vracer.py --numIndividuals 100 --numTimesteps 100 --numNearestNeighbours 3
+
+In order to run the evaluation use
+
+.. code-block:: bash
+
+	python eval-vracer.py --visualize 1 --numIndividuals 10 --numTimesteps 100 --numNearestNeighbours 3

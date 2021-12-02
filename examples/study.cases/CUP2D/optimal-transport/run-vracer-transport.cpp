@@ -2,8 +2,6 @@
 #include "_model/transportEnvironment.hpp"
 #include "korali.hpp"
 
-std::string _resultsPath;
-
 int main(int argc, char *argv[])
 {
   // Gathering actual arguments from MPI
@@ -24,12 +22,7 @@ int main(int argc, char *argv[])
   MPI_Comm_size(MPI_COMM_WORLD, &N);
   N = N - 1; // Minus one for Korali's engine
 
-  int testingEpisodes = 5;
-
-  // Init CUP2D
-  _environment = new Simulation(_argc, _argv);
-  _environment->init();
-
+  // Setting results path
   std::string trainingResultsPath = "_results_transport_vracer_training/";
   std::string testingResultsPath = "_results_transport_vracer_testing/";
 
@@ -37,21 +30,21 @@ int main(int argc, char *argv[])
   auto e = korali::Experiment();
   e["Problem"]["Type"] = "Reinforcement Learning / Continuous";
   
+  // Check if existing results are there and continuing them
   auto found = e.loadState(trainingResultsPath + std::string("/latest"));
   if (found == true) printf("[Korali] Continuing execution from previous run...\n");
 
   // Configuring Experiment
   e["Problem"]["Environment Function"] = &runEnvironmentVracer;
-  e["Problem"]["Training Reward Threshold"] = std::numeric_limits<double>::infinity(); // max reward == 1
-  e["Problem"]["Testing Frequency"] = 100; // max reward == 1
-  e["Problem"]["Policy Testing Episodes"] = testingEpisodes;
-  e["Problem"]["Actions Between Policy Updates"] = 1;
+  e["Problem"]["Training Reward Threshold"] = std::numeric_limits<double>::infinity();
+  e["Problem"]["Policy Testing Episodes"] = 5;
+  // e["Problem"]["Actions Between Policy Updates"] = 1;
 
-  // Adding custom setting to run the environment without dumping the state files during training
+  // Setting results path an dumping frequency in CUP
   e["Problem"]["Custom Settings"]["Dump Frequency"] = 0.0;
   e["Problem"]["Custom Settings"]["Dump Path"] = trainingResultsPath;
 
-  // Setting up the state variables (see _deps/CUP-2D/source/obstacles/SmartCylinder.cpp
+  // Setting up the state variables (see _deps/CUP-2D/source/obstacles/SmartCylinder.cpp)
   const size_t numStates = 4;
   size_t curVariable = 0;
   for (; curVariable < numStates; curVariable++)
@@ -85,7 +78,6 @@ int main(int argc, char *argv[])
 
 
   /// Defining Agent Configuration
-
   e["Solver"]["Type"] = "Agent / Continuous / VRACER";
   e["Solver"]["Mode"] = "Training";
   e["Solver"]["Concurrent Environments"] = N;
@@ -96,7 +88,6 @@ int main(int argc, char *argv[])
   e["Solver"]["Mini Batch"]["Size"] =  128;
 
   /// Defining the configuration of replay memory
-
   e["Solver"]["Experience Replay"]["Start Size"] = 1024;
   e["Solver"]["Experience Replay"]["Maximum Size"] = 65536;
   e["Solver"]["Experience Replay"]["Off Policy"]["Annealing Rate"] = 5.0e-8;
@@ -105,13 +96,11 @@ int main(int argc, char *argv[])
   e["Solver"]["Experience Replay"]["Off Policy"]["Target"] = 0.1;
 
   //// Defining Policy distribution and scaling parameters
-
   e["Solver"]["Policy"]["Distribution"] = "Normal";
   e["Solver"]["State Rescaling"]["Enabled"] = true;
   e["Solver"]["Reward"]["Rescaling"]["Enabled"] = true;
 
   //// Defining Neural Network
-
   e["Solver"]["Neural Network"]["Engine"] = "OneDNN";
   e["Solver"]["Neural Network"]["Optimizer"] = "Adam";
 
@@ -131,24 +120,20 @@ int main(int argc, char *argv[])
   e["Solver"]["Neural Network"]["Hidden Layers"][3]["Function"] = "Elementwise/Tanh";
 
   ////// Defining Termination Criteria
-
   e["Solver"]["Termination Criteria"]["Max Experiences"] = 1e7;
   // e["Solver"]["Termination Criteria"]["Testing"]["Max Generations"] = 1000;
   // e["Solver"]["Termination Criteria"]["Testing"]["Target Average Reward"] = 0.99;
 
   ////// Setting Korali output configuration
-
   e["Console Output"]["Verbosity"] = "Detailed";
   e["File Output"]["Enabled"] = true;
   e["File Output"]["Frequency"] = 1;
   e["File Output"]["Path"] = trainingResultsPath;
 
   ////// Running Experiment
-
   auto k = korali::Engine();
 
   // Configuring profiler output
-
   k["Profiling"]["Detail"] = "Full";
   k["Profiling"]["Path"] = trainingResultsPath + std::string("/profiling.json");
   k["Profiling"]["Frequency"] = 10;
@@ -157,22 +142,4 @@ int main(int argc, char *argv[])
   korali::setKoraliMPIComm(MPI_COMM_WORLD);
 
   k.run(e);
-
-  ////// Now testing policy, dumping trajectory results
-
-  printf("[Korali] Done with training. Now running learned policy to dump the trajectory.\n");
-
-  // Adding custom setting to run the environment dumping the state files during testing
-  e["Problem"]["Custom Settings"]["Dump Frequency"] = 0.1;
-  e["Problem"]["Custom Settings"]["Dump Path"] = testingResultsPath;
-
-  e["File Output"]["Path"] = testingResultsPath;
-  k["Profiling"]["Path"] = testingResultsPath + std::string("/profiling.json");
-  e["Solver"]["Testing"]["Policy"] = e["Solver"]["Best Training Hyperparamters"];
-  e["Solver"]["Mode"] = "Testing";
-  for (int i = 0; i < testingEpisodes; i++) e["Solver"]["Testing"]["Sample Ids"][i] = i;
-
-  k.run(e);
-
-  printf("[Korali] Finished. Testing dump files stored in %s\n", testingResultsPath.c_str());
 }

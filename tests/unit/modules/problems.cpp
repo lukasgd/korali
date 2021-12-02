@@ -1741,7 +1741,6 @@ namespace
   problemJs["Type"] = "Hierarchical/Theta";
   problemJs["Sub Experiment"] = subExp;
   problemJs["Psi Experiment"] = psiExp;
-  problemJs["Sub Experiment Model"] = 0;
 
   ASSERT_NO_THROW(pObj = dynamic_cast<Theta *>(Module::getModule(problemJs, &e)));
   e._problem = pObj;
@@ -1826,21 +1825,6 @@ namespace
   pObj->_subExperiment = subExp;
   pObj->_subExperiment["Solver"]["Sample LogPrior Database"] = std::vector<double>({std::numeric_limits<double>::infinity()});
   ASSERT_ANY_THROW(pObj->initialize());
-
-  problemJs = baseProbJs;
-  experimentJs = baseExpJs;
-  problemJs.erase("Sub Experiment Model");
-  ASSERT_ANY_THROW(pObj->setConfiguration(problemJs));
-
-  problemJs = baseProbJs;
-  experimentJs = baseExpJs;
-  problemJs["Sub Experiment Model"] = "Not a Number";
-  ASSERT_ANY_THROW(pObj->setConfiguration(problemJs));
-
-  problemJs = baseProbJs;
-  experimentJs = baseExpJs;
-  problemJs["Sub Experiment Model"] = 0;
-  ASSERT_NO_THROW(pObj->setConfiguration(problemJs));
 
   problemJs = baseProbJs;
   experimentJs = baseExpJs;
@@ -2018,8 +2002,6 @@ namespace
   knlohmann::json problemJs;
   problemJs["Type"] = "Reinforcement Learning / Discrete";
   problemJs["Environment Function"] = 0;
-  problemJs["Training Reward Threshold"] = 50.0;
-  problemJs["Policy Testing Episodes"] = 20;
   problemJs["Possible Actions"] = std::vector<std::vector<float>>({{0.0}, {1.0}});
 
   ASSERT_NO_THROW(pObj = dynamic_cast<reinforcementLearning::Discrete *>(Module::getModule(problemJs, &e)));
@@ -2160,51 +2142,6 @@ namespace
 
   problemJs = baseProbJs;
   experimentJs = baseExpJs;
-  problemJs.erase("Testing Frequency");
-  ASSERT_ANY_THROW(pObj->setConfiguration(problemJs));
-
-  problemJs = baseProbJs;
-  experimentJs = baseExpJs;
-  problemJs["Testing Frequency"] = "Not a Number";
-  ASSERT_ANY_THROW(pObj->setConfiguration(problemJs));
-
-  problemJs = baseProbJs;
-  experimentJs = baseExpJs;
-  problemJs["Testing Frequency"] = 1;
-  ASSERT_NO_THROW(pObj->setConfiguration(problemJs));
-
-  problemJs = baseProbJs;
-  experimentJs = baseExpJs;
-  problemJs.erase("Training Reward Threshold");
-  ASSERT_ANY_THROW(pObj->setConfiguration(problemJs));
-
-  problemJs = baseProbJs;
-  experimentJs = baseExpJs;
-  problemJs["Training Reward Threshold"] = "Not a Number";
-  ASSERT_ANY_THROW(pObj->setConfiguration(problemJs));
-
-  problemJs = baseProbJs;
-  experimentJs = baseExpJs;
-  problemJs["Training Reward Threshold"] = 1.0;
-  ASSERT_NO_THROW(pObj->setConfiguration(problemJs));
-
-  problemJs = baseProbJs;
-  experimentJs = baseExpJs;
-  problemJs.erase("Policy Testing Episodes");
-  ASSERT_ANY_THROW(pObj->setConfiguration(problemJs));
-
-  problemJs = baseProbJs;
-  experimentJs = baseExpJs;
-  problemJs["Policy Testing Episodes"] = "Not a Number";
-  ASSERT_ANY_THROW(pObj->setConfiguration(problemJs));
-
-  problemJs = baseProbJs;
-  experimentJs = baseExpJs;
-  problemJs["Policy Testing Episodes"] = 1;
-  ASSERT_NO_THROW(pObj->setConfiguration(problemJs));
-
-  problemJs = baseProbJs;
-  experimentJs = baseExpJs;
   problemJs.erase("Custom Settings");
   ASSERT_ANY_THROW(pObj->setConfiguration(problemJs));
 
@@ -2288,8 +2225,6 @@ namespace
    knlohmann::json problemJs;
    problemJs["Type"] = "Reinforcement Learning / Continuous";
    problemJs["Environment Function"] = 0;
-   problemJs["Training Reward Threshold"] = 50.0;
-   problemJs["Policy Testing Episodes"] = 20;
 
    ASSERT_NO_THROW(pObj = dynamic_cast<reinforcementLearning::Continuous *>(Module::getModule(problemJs, &e)));
    e._problem = pObj;

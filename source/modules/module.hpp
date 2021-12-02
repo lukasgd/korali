@@ -18,6 +18,7 @@ namespace korali
 {
 class Experiment;
 class Conduit;
+class Engine;
 
 /*! \class Module
     \brief Represents the basic building block of all Korali modules.
@@ -49,6 +50,12 @@ class Module
    * @brief Initializes Module upon creation. May allocate memory, set initial states, and initialize external code.
    */
   virtual void initialize();
+
+  /**
+   * @brief Sets pointer to the current Korali engine, if the module requires running samples
+   * @param engine Engine pointer
+   */
+  virtual void setEngine(korali::Engine* engine);
 
   /**
    * @brief Finalizes Module. Deallocates memory and produces outputs.

@@ -24,6 +24,7 @@ if __name__ == '__main__':
     sim  = swarm( numIndividuals, numNearestNeighbours )
     step = 0
     done = False
+    action = [1,0,0]
     while (step < numTimeSteps) and not done:
         print("timestep {}/{}".format(step+1, numTimeSteps))
         # if enable, plot current configuration
@@ -42,10 +43,10 @@ if __name__ == '__main__':
             print("agent {}/{}".format(i+1, sim.N))
             # for Newton policy state is the directions to the nearest neighbours
             state  = sim.getState(i)
-            print("state:", state)
+            # print("state:", state)
             # set action
-            action = sim.fishes[i].newtonPolicy( state )
-            print("action:", action)
+            # action = sim.fishes[i].newtonPolicy( state )
+            # print("action:", action)
             if math.isclose( np.linalg.norm(action),  1.0 ):
                 sim.fishes[i].wishedDirection = action
             # get reward (Careful: assumes sim.state(i) was called before)

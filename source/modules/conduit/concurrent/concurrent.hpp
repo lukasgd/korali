@@ -95,6 +95,7 @@ class Concurrent : public Conduit
   knlohmann::json recvMessageFromEngine() override;
   void sendMessageToSample(Sample &sample, knlohmann::json &message) override;
   size_t getProcessId() override;
+  size_t getWorkerCount() override;
 };
 
 } //conduit

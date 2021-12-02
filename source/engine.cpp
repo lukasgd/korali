@@ -53,7 +53,7 @@ void Engine::initialize()
     _experimentVector[i]->initialize();
     _experimentVector[i]->_isFinished = false;
   }
-  
+
   // Check configuration correctness
   auto js = _js.getJson();
   if (isDefined(js, "Conduit")) eraseValue(js, "Conduit");
@@ -85,6 +85,9 @@ void Engine::start()
 
   // Recovering Conduit configuration in case of restart
   _conduit->getConfiguration(_js.getJson()["Conduit"]);
+
+  // Now initializing engine and its experiments
+  initialize();
 
   if (_conduit->isRoot())
   {
@@ -149,7 +152,6 @@ void Engine::run(Experiment &experiment)
   _experimentVector.clear();
   experiment._k->_engine = this;
   _experimentVector.push_back(experiment._k);
-  initialize();
   start();
 }
 
@@ -161,7 +163,6 @@ void Engine::run(std::vector<Experiment> &experiments)
     experiments[i]._k->_engine = this;
     _experimentVector.push_back(experiments[i]._k);
   }
-  initialize();
   start();
 }
 
@@ -249,6 +250,5 @@ PYBIND11_MODULE(libkorali, m)
     .def(pybind11::init<>())
     .def("__getitem__", pybind11::overload_cast<pybind11::object>(&Experiment::getItem), pybind11::return_value_policy::reference)
     .def("__setitem__", pybind11::overload_cast<pybind11::object, pybind11::object>(&Experiment::setItem), pybind11::return_value_policy::reference)
-    .def("loadState", &Experiment::loadState)
-    .def("getEvaluation", &Experiment::getEvaluation);
+    .def("loadState", &Experiment::loadState);
 }

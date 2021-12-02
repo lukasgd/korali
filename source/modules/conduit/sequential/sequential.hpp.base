@@ -36,6 +36,7 @@ class __className__ : public __parentClassName__
   knlohmann::json recvMessageFromEngine() override;
   void sendMessageToSample(Sample &sample, knlohmann::json &message) override;
   size_t getProcessId() override;
+  size_t getWorkerCount() override;
 };
 
 __endNamespace__;

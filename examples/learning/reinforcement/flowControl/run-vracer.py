@@ -28,8 +28,6 @@ if found == True:
 ### Defining Problem Configuration
 e["Problem"]["Type"] = "Reinforcement Learning / Continuous"
 e["Problem"]["Environment Function"] = lambda x : environment( args, x )
-e["Problem"]["Training Reward Threshold"] = math.inf
-e["Problem"]["Policy Testing Episodes"] = 20
 e["Problem"]["Agents Per Environment"] = 1
 
 ### Defining Agent Configuration 
@@ -92,6 +90,7 @@ e["Solver"]["Neural Network"]["Hidden Layers"][3]["Function"] = "Elementwise/Tan
 ### Setting file output configuration
 
 e["Solver"]["Termination Criteria"]["Max Experiences"] = 10e6
+e["Solver"]["Termination Criteria"]["Max Generations"] = 30
 e["Solver"]["Experience Replay"]["Serialize"] = True
 e["Console Output"]["Verbosity"] = "Detailed"
 e["File Output"]["Enabled"] = True
@@ -101,3 +100,10 @@ e["File Output"]["Path"] = resultFolder
 ### Running Experiment
 
 k.run(e)
+
+### Checking if we reached a minimum performance
+
+bestReward = e["Solver"]["Training"]["Best Reward"]
+if (bestReward < 1000.0):
+ print("Flow Control example did not reach minimum training performance.")
+ exit(-1)

@@ -27,7 +27,6 @@ def plotRewardHistory(ax, dirs, results, minReward, maxReward, averageDepth, max
 
  ## Setting initial x-axis (episode) and  y-axis (reward) limits
  if (dir2 == ''):
-
      maxPlotObservations = -math.inf
      maxPlotReward = -math.inf
      minPlotReward = +math.inf
@@ -88,7 +87,6 @@ def plotRewardHistory(ax, dirs, results, minReward, maxReward, averageDepth, max
 
       if (trainingRewardThreshold != -math.inf and trainingRewardThreshold != math.inf): 
        if (trainingRewardThreshold > maxPlotReward): maxPlotReward = trainingRewardThreshold
-
       
       if (trainingRewardThreshold != -math.inf and trainingRewardThreshold != math.inf):   
        if (trainingRewardThreshold < minPlotReward): minPlotReward = trainingRewardThreshold
@@ -129,7 +127,6 @@ def plotRewardHistory(ax, dirs, results, minReward, maxReward, averageDepth, max
         ax.plot(cumulativeObsArr, meanHistory, '-', color=cmap(colCurrIndex), lineWidth=3.0, zorder=1, label = label1) 
         plt.legend(loc="lower right")
       
-
       # Plotting confidence intervals
       if showCI > 0.:
         ax.fill_between(cumulativeObsArr, confIntervalLowerHistory, confIntervalUpperHistory, color=cmap(colCurrIndex), alpha=0.2)
@@ -137,8 +134,6 @@ def plotRewardHistory(ax, dirs, results, minReward, maxReward, averageDepth, max
       # Updating color index
       if len(unpackedResults)>1:
         colCurrIndex = colCurrIndex + (1.0 / float(len(unpackedResults)-1)) - 0.0001
-        
-
       
      ## Configuring common plotting features
 
@@ -335,7 +330,7 @@ def parseResults(dir):
 ##################### Main Routine: Parsing arguments and result files
   
 if __name__ == '__main__':
- 
+
  # Setting termination signal handler
  
  signal.signal(signal.SIGINT, lambda x, y: exit(0))

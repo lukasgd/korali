@@ -35,6 +35,9 @@ void Conduit::runSample(Sample *sample, Engine *engine)
   (*sample)["Current Generation"] = engine->_currentExperiment->_currentGeneration;
   (*sample)["Has Finished"] = false;
 
+  // Identifier of the worker that will execute the sample
+  size_t workerId = 0;
+
   // Check whether there are available workers to compute this sample.
   while (engine->_conduit->_workerQueue.empty())
   {
@@ -46,10 +49,11 @@ void Conduit::runSample(Sample *sample, Engine *engine)
   }
 
   // Selecting the next available worker
-  auto workerId = engine->_conduit->_workerQueue.front();
-  engine->_conduit->_workerQueue.pop();
+  workerId = engine->_conduit->_workerQueue.front();
+  engine->_conduit->_workerQueue.pop_front();
 
   // Assigning worker to sample ids and vice-versa for bookkeeping
+  (*sample)["Worker Id"] = workerId;
   sample->_workerId = workerId;
   engine->_conduit->_workerToSampleMap[workerId] = sample;
 
@@ -78,7 +82,7 @@ void Conduit::runSample(Sample *sample, Engine *engine)
   sample->_js.getJson() = endMessage;
 
   // Putting worker back to the available worker queue
-  engine->_conduit->_workerQueue.push(sample->_workerId);
+  engine->_conduit->_workerQueue.push_back(sample->_workerId);
 
   // Storing profiling information
   timelineJs["End Time"] = chrono::duration<double>(chrono::high_resolution_clock::now() - _startTime).count() + _cumulativeTime;

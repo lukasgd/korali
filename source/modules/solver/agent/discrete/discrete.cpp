@@ -48,11 +48,11 @@ void Discrete::getAction(korali::Sample &sample)
     size_t actionIdx = 0;
 
     /*****************************************************************************
-  * During training, we follow the Epsilon-greedy strategy. Choose, given a
-  * probability (pEpsilon), one from the following:
-  *  - Uniformly random action among all possible actions
-  *  - Sample action guided by the policy's probability distribution
-  ****************************************************************************/
+     * During training, we follow the Epsilon-greedy strategy. Choose, given a
+     * probability (pEpsilon), one from the following:
+     *  - Uniformly random action among all possible actions
+     *  - Sample action guided by the policy's probability distribution
+     ****************************************************************************/
 
     if (sample["Mode"] == "Training")
     {
@@ -76,17 +76,17 @@ void Discrete::getAction(korali::Sample &sample)
     }
 
     /*****************************************************************************
-  * During testing, we just select the action with the largest probability
-  * given by the policy.
-  ****************************************************************************/
+     * During testing, we just select the action with the largest probability
+     * given by the policy.
+     ****************************************************************************/
 
     // Finding the best action index from the probabilities
     if (sample["Mode"] == "Testing")
       actionIdx = std::distance(pActions.begin(), std::max_element(pActions.begin(), pActions.end()));
 
     /*****************************************************************************
-  * Storing the action itself
- ****************************************************************************/
+     * Storing the action itself
+     ****************************************************************************/
 
     // Storing action itself, its idx, and probabilities
     sample["Action"][i] = _problem->_possibleActions[actionIdx];

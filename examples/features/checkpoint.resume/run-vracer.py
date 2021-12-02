@@ -32,9 +32,8 @@ if (found == True):
 
 e["Problem"]["Type"] = "Reinforcement Learning / Continuous"
 e["Problem"]["Environment Function"] = env
+e["Problem"]["Environment Count"] = 3
 e["Problem"]["Actions Between Policy Updates"] = 500
-e["Problem"]["Training Reward Threshold"] = 800
-e["Problem"]["Policy Testing Episodes"] = 10
 
 ### Defining State variables
 
@@ -65,7 +64,7 @@ e["Solver"]["Mini Batch"]["Size"] = 64
 ### Normalization Configuration
 
 e["Solver"]["Policy"]["Distribution"] = "Squashed Normal"
-e["Solver"]["State Rescaling"]["Enabled"] = True
+e["Solver"]["State Rescaling"]["Enabled"] = True 
 e["Solver"]["Reward"]["Rescaling"]["Enabled"] = True
 
 ### Configuring the neural network and its hidden layers
@@ -84,10 +83,6 @@ e["Solver"]["Neural Network"]["Hidden Layers"][2]["Output Channels"] = 32
 
 e["Solver"]["Neural Network"]["Hidden Layers"][3]["Type"] = "Layer/Activation"
 e["Solver"]["Neural Network"]["Hidden Layers"][3]["Function"] = "Elementwise/Tanh"
-
-### Defining Termination Criteria
-
-e["Solver"]["Termination Criteria"]["Testing"]["Target Average Reward"] = 800
 
 ### Setting file output configuration
 

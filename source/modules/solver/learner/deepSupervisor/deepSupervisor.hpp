@@ -38,6 +38,10 @@ class DeepSupervisor : public Learner
 {
   public: 
   /**
+  * @brief Specifies the operation mode for the learner.
+  */
+   std::string _mode;
+  /**
   * @brief Sets the configuration of the hidden layers for the neural network.
   */
    knlohmann::json _neuralNetworkHiddenLayers;
@@ -66,10 +70,6 @@ class DeepSupervisor : public Learner
   */
    std::string _lossFunction;
   /**
-  * @brief Represents the number of opitmization steps to run per each generation.
-  */
-   size_t _stepsPerGeneration;
-  /**
   * @brief Learning rate for the underlying ADAM optimizer.
   */
    float _learningRate;
@@ -85,6 +85,14 @@ class DeepSupervisor : public Learner
   * @brief Specified by how much will the weights of the last linear transformation of the NN be scaled. A value of < 1.0 is useful for a more deterministic start.
   */
    float _outputWeightsScaling;
+  /**
+  * @brief Specifies in how many parts will the mini batch be split for concurrent processing. It must divide the training mini batch size perfectly.
+  */
+   size_t _batchConcurrency;
+  /**
+  * @brief [Internal Use] The output of the neural network if running on testing mode.
+  */
+   std::vector<std::vector<float>> _evaluation;
   /**
   * @brief [Internal Use] Current value of the loss function.
   */
@@ -127,6 +135,13 @@ class DeepSupervisor : public Learner
   * @brief Applies the module's default variable configuration to each variable in the Experiment upon creation.
   */
   void applyVariableDefaults() override;
+  /**
+  * @brief Runs the operation specified on the given sample. It checks recursively whether the function was found by the current module or its parents.
+  * @param sample Sample to operate on. Should contain in the 'Operation' field an operation accepted by this module or its parents.
+  * @param operation Should specify an operation type accepted by this module or its parents.
+  * @return True, if operation found and executed; false, otherwise.
+  */
+  bool runOperation(std::string operation, korali::Sample& sample) override;
   
 
   /**
@@ -149,22 +164,35 @@ class DeepSupervisor : public Learner
    */
   NeuralNetwork *_neuralNetwork;
 
-  // Only needed for DDPG
-  //
-  //    * @brief Calculates the gradients with respect to the inputs (data), given an input and output gradients
-  //    * @param input The inputs from which to infer outputs. Format: BxTxIC (B: Batch Size, T: Time steps, IC: Input channels)
-  //    * @param outputGradients The output gradients. Format: BxOC (B: Batch Size, OC: Input channels)
-  //    * @return The inferred batch input gradients Format: BxIC (B: Batch Size, IC: Output channels)
-  //
-  //  std::vector<std::vector<float>> &getDataGradients(const std::vector<std::vector<std::vector<float>>> &input, const std::vector<std::vector<float>> &outputGradients);
-
   std::vector<std::vector<float>> &getEvaluation(const std::vector<std::vector<std::vector<float>>> &input) override;
   std::vector<float> getHyperparameters() override;
   void setHyperparameters(const std::vector<float> &hyperparameters) override;
 
   void initialize() override;
   void runGeneration() override;
+  void runTrainingGeneration();
+  void runTestingGeneration();
   void printGenerationAfter() override;
+
+  std::vector<float> backwardGradients(const std::vector<std::vector<float>> &gradients);
+
+  /**
+   * @brief Run the training pipeline of the network given an input and return the output.
+   * @param sample A sample containing the NN's input BxTxIC (B: Batch Size, T: Time steps, IC: Input channels) and solution BxOC data (B: Batch Size, OC: Output channels)
+   */
+  void runTrainingOnWorker(korali::Sample &sample);
+
+  /**
+   * @brief Run the forward evaluation pipeline of the network given an input and return the output.
+   * @param sample A sample containing the NN's input BxTxIC (B: Batch Size, T: Time steps, IC: Input channels)
+   */
+  void runEvaluationOnWorker(korali::Sample &sample);
+
+  /**
+   * @brief Update the hyperparameters for the neural network after an update for every worker.
+   * @param sample A sample containing the new NN's hyperparameters
+   */
+  void updateHyperparametersOnWorker(korali::Sample &sample);
 };
 
 } //learner

@@ -31,8 +31,6 @@ def initEnvironment(e, envName, moviePath = ''):
  e["Problem"]["Type"] = "Reinforcement Learning / Continuous"
  e["Problem"]["Environment Function"] = lambda x : agent(x, env)
  e["Problem"]["Custom Settings"]["Print Step Information"] = "Disabled"
- e["Problem"]["Training Reward Threshold"] = math.inf
- e["Problem"]["Policy Testing Episodes"] = 20
  
  # Getting environment variable counts
  stateVariableCount = env.observation_space.shape[0]
@@ -40,12 +38,6 @@ def initEnvironment(e, envName, moviePath = ''):
  
  # Generating state variable index list
  stateVariablesIndexes = range(stateVariableCount)
- 
- # Handling Environment-Specific Configuration
- 
- if (envName == 'Ant-v2'):
-  stateVariableCount = 27
-  stateVariablesIndexes = range(stateVariableCount) 
  
  # Defining State Variables
  
@@ -62,12 +54,8 @@ def initEnvironment(e, envName, moviePath = ''):
   e["Variables"][stateVariableCount + i]["Type"] = "Action"
   e["Variables"][stateVariableCount + i]["Lower Bound"] = float(env.action_space.low[i])
   e["Variables"][stateVariableCount + i]["Upper Bound"] = float(env.action_space.high[i])
-  e["Variables"][stateVariableCount + i]["Initial Exploration Noise"] = math.sqrt(0.2)
+  e["Variables"][stateVariableCount + i]["Initial Exploration Noise"] = 0.2
 
- ### Defining Termination Criteria
-
- e["Solver"]["Termination Criteria"]["Testing"]["Target Average Reward"] = math.inf
- 
 def agent(s, env):
 
  if (s["Custom Settings"]["Print Step Information"] == "Enabled"):

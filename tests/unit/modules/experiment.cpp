@@ -36,8 +36,6 @@ namespace
   e->_isFinished = false;
   ASSERT_NO_THROW(e->initialize());
 
-  ASSERT_ANY_THROW(e->getEvaluation({{{}}}));
-
   expJs = backJs;
   expJs.erase("Variables");
   ASSERT_NO_THROW(e->setConfiguration(expJs));

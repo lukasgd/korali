@@ -112,13 +112,6 @@ class __className__ : public __parentClassName__
   knlohmann::json &operator[](const std::string &key);
 
   /**
-   * @brief For learner modules which have been trained, test returns an inferred output batch, from a batch of inputs to process.
-   * @param inputBatch The inputs from which to infer outputs. Format: TxBxIC (T: Time steps, B: Batch Size, IC: Input channels)
-   * @return The inferred outputs. Format: BxOC (Time steps, B: Batch Size, OC: Output channels)
-   */
-  std::vector<std::vector<float>> getEvaluation(const std::vector<std::vector<std::vector<float>>> &inputBatch);
-
-  /**
    * @brief Initializes seed to a random value based on current time if not set by the user (i.e. Random Seed is 0).
    * @param js Json object onto which to store the Experiment data.
    */

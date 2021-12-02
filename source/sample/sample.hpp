@@ -94,6 +94,11 @@ class Sample
   KoraliJson _js;
 
   /**
+   * @brief Container for sending big raw data
+   */
+  std::vector<std::vector<float>> _rawData;
+
+  /**
   * @brief Constructs Sample. Stores its own pointer, sets ID to zero, state as uninitialized, and isAllocated to false.
   */
   Sample();

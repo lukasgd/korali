@@ -23,21 +23,30 @@ void Distributed::initialize()
   // Sanity checks for the correct initialization of MPI
   int isInitialized = 0;
   MPI_Initialized(&isInitialized);
+  if (__isMPICommGiven == false) KORALI_LOG_ERROR("Korali requires that MPI communicator is passed (via setMPIComm) prior to running the engine.\n");
   if (isInitialized == 0) KORALI_LOG_ERROR("Korali requires that the MPI is initialized by the user (e.g., via MPI_init) prior to running the engine.\n");
-  if (__isMPICommGiven == false) KORALI_LOG_ERROR("Korali requires that MPI communicator is passed (via setKoraliMPIComm) prior to running the engine.\n");
-  if (_rankCount == 1) KORALI_LOG_ERROR("Korali Distributed applications require at least 2 Distributed ranks to run.\n");
 
   // Getting size and id from the user-defined communicator
   MPI_Comm_size(__KoraliGlobalMPIComm, &_rankCount);
   MPI_Comm_rank(__KoraliGlobalMPIComm, &_rankId);
-  MPI_Barrier(__KoraliGlobalMPIComm);
 
   // Determining ranks per worker
-  int curWorker = 0;
-  _workerCount = (_rankCount - 1) / _ranksPerWorker;
-  size_t workerRemainder = (_rankCount - 1) % _ranksPerWorker;
-  if (workerRemainder != 0) KORALI_LOG_ERROR("Korali was instantiated with %lu MPI ranks (minus one for the engine), divided into %lu workers. This setup does not provide a perfectly divisible distribution, and %lu unused ranks remain.\n", _workerCount, _ranksPerWorker, workerRemainder);
+  _workerCount = (_rankCount - _engineRanks) / _ranksPerWorker;
+  size_t workerRemainder = (_rankCount - _engineRanks) % _ranksPerWorker;
 
+  // If this is a root rank, check whether configuration is correct
+  if (isRoot())
+  {
+   if (_rankCount < 2) KORALI_LOG_ERROR("Korali Distributed applications require at least 2 MPI ranks to run.\n");
+   if (_ranksPerWorker < 1) KORALI_LOG_ERROR("The distributed conduit requires that the ranks per worker is equal or larger than 1, provided: %d\n", _ranksPerWorker);
+   if (_engineRanks < 1) KORALI_LOG_ERROR("The distributed conduit requires that the engine ranks is equal or larger than 1, provided: %d\n", _engineRanks);
+   if (workerRemainder != 0) KORALI_LOG_ERROR("Korali was instantiated with %lu MPI ranks (minus %lu for the engine), divided into %lu workers. This setup does not provide a perfectly divisible distribution, and %lu unused ranks remain.\n", _rankCount, _engineRanks, _workerCount, workerRemainder);
+  }
+
+  // Syncrhonizing all ranks
+  MPI_Barrier(__KoraliGlobalMPIComm);
+
+  // Initializing worker id setting storage
   _localRankId = 0;
   _workerIdSet = false;
 
@@ -50,12 +59,13 @@ void Distributed::initialize()
   _rankToWorkerMap.resize(_rankCount);
 
   // Initializing available worker queue
-  _workerQueue = queue<size_t>();
-  while (!_workerQueue.empty()) _workerQueue.pop();
+  _workerQueue.clear();
 
   // Putting workers in the queue
-  for (int i = 0; i < _workerCount; i++)
-    _workerQueue.push(i);
+  for (int i = 0; i < _workerCount; i++) _workerQueue.push_back(i);
+
+  // Korali engine as default, is the n+1th worker
+  int curWorker = _workerCount + 1;
 
   // Now assigning ranks to workers and viceversa
   int currentRank = 0;
@@ -74,17 +84,6 @@ void Distributed::initialize()
       currentRank++;
     }
 
-  // If this is the root rank, check whether the number of ranks is correct
-  if (isRoot())
-  {
-    int mpiSize;
-    MPI_Comm_size(__KoraliGlobalMPIComm, &mpiSize);
-
-    checkRankCount();
-
-    curWorker = _workerCount + 1;
-  }
-
   // Creating communicator
   MPI_Comm_split(__KoraliGlobalMPIComm, curWorker, _rankId, &__koraliWorkerMPIComm);
 
@@ -93,16 +92,28 @@ void Distributed::initialize()
 #endif
 }
 
-void Distributed::checkRankCount()
-{
-  if (_rankCount < _ranksPerWorker + 1)
-    KORALI_LOG_ERROR("You are running Korali with %d ranks. However, you need at least %d ranks to have at least one worker team. \n", _rankCount, _ranksPerWorker + 1);
-}
-
 void Distributed::initServer()
 {
 #ifdef _KORALI_USE_MPI
-  if (isRoot() == false && _workerIdSet == true) worker();
+
+ // Workers run and synchronize at the end
+ if (isRoot() == false && _workerIdSet == true) worker();
+
+ // Non root engine ranks passively wait and finish upon synchronization
+ if (isRoot() == false && _workerIdSet == false)
+ {
+  MPI_Request req;
+  int flag;
+  MPI_Irecv(&flag, 1, MPI_INT, getRootRank(), __KORALI_MPI_MESSAGE_JSON_TAG, MPI_COMM_WORLD, &req);
+  int finalized = 0;
+  while (finalized == 0)
+  {
+   // Passive wait, 1s at a time
+   usleep(1000000);
+   MPI_Test(&req, &finalized, MPI_STATUS_IGNORE);
+  }
+ }
+
 #endif
 }
 
@@ -112,14 +123,20 @@ void Distributed::terminateServer()
   auto terminationJs = knlohmann::json();
   terminationJs["Conduit Action"] = "Terminate";
 
-  string terminationString = terminationJs.dump();
-  size_t terminationStringSize = terminationString.size();
+  // Serializing message in binary form
+  std::vector<std::uint8_t> msgData = knlohmann::json::to_cbor(terminationJs);
 
   if (isRoot())
   {
+   // Sending message to workers for termination
     for (int i = 0; i < _workerCount; i++)
       for (int j = 0; j < _ranksPerWorker; j++)
-        MPI_Send(terminationString.c_str(), terminationStringSize, MPI_CHAR, _workerTeams[i][j], __KORALI_MPI_MESSAGE_JSON_TAG, __KoraliGlobalMPIComm);
+        MPI_Send(msgData.data(), msgData.size(), MPI_UINT8_T, _workerTeams[i][j], __KORALI_MPI_MESSAGE_JSON_TAG, __KoraliGlobalMPIComm);
+
+    // Sending message to Korali non-root engine ranks for termination
+    int flag = 0;
+    for (int i = _rankCount - _engineRanks; i < _rankCount - 1; i++)
+     MPI_Send(&flag, 1, MPI_INT, i, __KORALI_MPI_MESSAGE_JSON_TAG, MPI_COMM_WORLD);
   }
 
 #endif
@@ -133,12 +150,12 @@ void Distributed::broadcastMessageToWorkers(knlohmann::json &message)
   // Run broadcast only if this is the master process
   if (!isRoot()) return;
 
-  string messageString = message.dump();
-  size_t messageStringSize = messageString.size();
+  // Serializing message in binary form
+  std::vector<std::uint8_t> msgData = knlohmann::json::to_cbor(message);
 
   for (int i = 0; i < _workerCount; i++)
     for (int j = 0; j < _ranksPerWorker; j++)
-      MPI_Send(messageString.c_str(), messageStringSize, MPI_CHAR, _workerTeams[i][j], __KORALI_MPI_MESSAGE_JSON_TAG, __KoraliGlobalMPIComm);
+      MPI_Send(msgData.data(), msgData.size(), MPI_UINT8_T, _workerTeams[i][j], __KORALI_MPI_MESSAGE_JSON_TAG, __KoraliGlobalMPIComm);
 #endif
 }
 
@@ -160,14 +177,20 @@ bool Distributed::isRoot()
   return true;
 }
 
+bool Distributed::isWorkerLeadRank()
+{
+  // Arbitrarily, we decide that rank 0 is the root rank
+  return _localRankId == 0;
+}
+
 void Distributed::sendMessageToEngine(knlohmann::json &message)
 {
 #ifdef _KORALI_USE_MPI
   if (_localRankId == 0)
   {
-    string messageString = message.dump();
-    size_t messageStringSize = messageString.size();
-    MPI_Send(messageString.c_str(), messageStringSize, MPI_CHAR, getRootRank(), __KORALI_MPI_MESSAGE_JSON_TAG, __KoraliGlobalMPIComm);
+    // Serializing message in binary form
+    std::vector<std::uint8_t> msgData = knlohmann::json::to_cbor(message);
+    MPI_Send(msgData.data(), msgData.size(), MPI_UINT8_T, getRootRank(), __KORALI_MPI_MESSAGE_JSON_TAG, __KoraliGlobalMPIComm);
   }
 #endif
 }
@@ -182,14 +205,12 @@ knlohmann::json Distributed::recvMessageFromEngine()
   MPI_Status status;
   MPI_Probe(getRootRank(), __KORALI_MPI_MESSAGE_JSON_TAG, __KoraliGlobalMPIComm, &status);
   int messageSize = 0;
-  MPI_Get_count(&status, MPI_CHAR, &messageSize);
+  MPI_Get_count(&status, MPI_UINT8_T, &messageSize);
 
-  char *jsonStringChar = (char *)malloc(sizeof(char) * (messageSize + 1));
-  MPI_Recv(jsonStringChar, messageSize, MPI_CHAR, getRootRank(), __KORALI_MPI_MESSAGE_JSON_TAG, __KoraliGlobalMPIComm, MPI_STATUS_IGNORE);
-
-  jsonStringChar[messageSize] = '\0';
-  message = knlohmann::json::parse(jsonStringChar);
-  free(jsonStringChar);
+  // Allocating receive buffer
+  auto msgData = std::vector<std::uint8_t>(messageSize);
+  MPI_Recv(msgData.data(), messageSize, MPI_UINT8_T, getRootRank(), __KORALI_MPI_MESSAGE_JSON_TAG, __KoraliGlobalMPIComm, MPI_STATUS_IGNORE);
+  message = knlohmann::json::from_cbor(msgData);
 #endif
 
   return message;
@@ -216,12 +237,10 @@ void Distributed::listenWorkers()
 
     // Receiving message from the worker
     int messageSize = 0;
-    MPI_Get_count(&status, MPI_CHAR, &messageSize);
-    char *messageStringChar = (char *)malloc(sizeof(char) * (messageSize + 1));
-    MPI_Recv(messageStringChar, messageSize, MPI_CHAR, source, __KORALI_MPI_MESSAGE_JSON_TAG, __KoraliGlobalMPIComm, MPI_STATUS_IGNORE);
-    messageStringChar[messageSize] = '\0';
-    auto message = knlohmann::json::parse(messageStringChar);
-    free(messageStringChar);
+    MPI_Get_count(&status, MPI_UINT8_T, &messageSize);
+    auto msgData = std::vector<std::uint8_t>(messageSize);
+    MPI_Recv(msgData.data(), msgData.size(), MPI_UINT8_T, source, __KORALI_MPI_MESSAGE_JSON_TAG, __KoraliGlobalMPIComm, MPI_STATUS_IGNORE);
+    auto message = knlohmann::json::from_cbor(msgData);
 
     // Storing message in the sample message queue
     sample->_messageQueue.push(message);
@@ -233,13 +252,14 @@ void Distributed::listenWorkers()
 void Distributed::sendMessageToSample(Sample &sample, knlohmann::json &message)
 {
 #ifdef _KORALI_USE_MPI
-  string messageString = message.dump();
-  size_t messageStringSize = messageString.size();
+
+  // Serializing message in binary form
+  std::vector<std::uint8_t> msgData = knlohmann::json::to_cbor(message);
 
   for (int i = 0; i < _ranksPerWorker; i++)
   {
     int rankId = _workerTeams[sample._workerId][i];
-    MPI_Send(messageString.c_str(), messageStringSize, MPI_CHAR, rankId, __KORALI_MPI_MESSAGE_JSON_TAG, __KoraliGlobalMPIComm);
+    MPI_Send(msgData.data(), msgData.size(), MPI_UINT8_T, rankId, __KORALI_MPI_MESSAGE_JSON_TAG, __KoraliGlobalMPIComm);
   }
 #endif
 }
@@ -275,6 +295,11 @@ size_t Distributed::getProcessId()
   return _rankId;
 }
 
+size_t Distributed::getWorkerCount()
+{
+ return _workerCount;
+}
+
 void Distributed::setConfiguration(knlohmann::json& js) 
 {
  if (isDefined(js, "Results"))  eraseValue(js, "Results");
@@ -288,6 +313,15 @@ void Distributed::setConfiguration(knlohmann::json& js)
  }
   else   KORALI_LOG_ERROR(" + No value provided for mandatory setting: ['Ranks Per Worker'] required by distributed.\n"); 
 
+ if (isDefined(js, "Engine Ranks"))
+ {
+ try { _engineRanks = js["Engine Ranks"].get<int>();
+} catch (const std::exception& e)
+ { KORALI_LOG_ERROR(" + Object: [ distributed ] \n + Key:    ['Engine Ranks']\n%s", e.what()); } 
+   eraseValue(js, "Engine Ranks");
+ }
+  else   KORALI_LOG_ERROR(" + No value provided for mandatory setting: ['Engine Ranks'] required by distributed.\n"); 
+
  Conduit::setConfiguration(js);
  _type = "distributed";
  if(isDefined(js, "Type")) eraseValue(js, "Type");
@@ -299,13 +333,14 @@ void Distributed::getConfiguration(knlohmann::json& js)
 
  js["Type"] = _type;
    js["Ranks Per Worker"] = _ranksPerWorker;
+   js["Engine Ranks"] = _engineRanks;
  Conduit::getConfiguration(js);
 } 
 
 void Distributed::applyModuleDefaults(knlohmann::json& js) 
 {
 
- std::string defaultString = "{\"Ranks Per Worker\": 1}";
+ std::string defaultString = "{\"Ranks Per Worker\": 1, \"Engine Ranks\": 1}";
  knlohmann::json defaultJs = knlohmann::json::parse(defaultString);
  mergeJson(js, defaultJs); 
  Conduit::applyModuleDefaults(js);

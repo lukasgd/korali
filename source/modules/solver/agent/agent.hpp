@@ -42,7 +42,7 @@ enum termination_t
   e_terminal = 1,
 
   /**
-   * @brief This is the terminal experience in a truncated episode
+   * @brief This is the terminal experience in a truncated episode.
    *        (i.e., should have continued, but it was artificially truncated to limit running time)
    */
   e_truncated = 2
@@ -237,6 +237,10 @@ class Agent : public Solver
   */
    std::vector<std::vector<float>> _trainingRewardHistory;
   /**
+  * @brief [Internal Use] Keeps a history of all training environment ids.
+  */
+   std::vector<size_t> _trainingEnvironmentIdHistory;
+  /**
   * @brief [Internal Use] Keeps a history of all training episode experience counts.
   */
    std::vector<size_t> _trainingExperienceHistory;
@@ -336,6 +340,10 @@ class Agent : public Solver
   * @brief [Internal Use] Count of the number of experiences produced so far.
   */
    size_t _experienceCount;
+  /**
+  * @brief [Internal Use] Count of the number of experiences in the replay memory per environment.
+  */
+   std::vector<size_t> _experienceCountPerEnvironment;
   /**
   * @brief [Internal Use] Contains the standard deviation of the rewards. They will be scaled by this value in order to normalize the reward distribution in the RM.
   */
@@ -508,7 +516,12 @@ class Agent : public Solver
   cBuffer<std::vector<std::vector<float>>> _truncatedStateVector;
 
   /**
-   * @brief Contains the rewards for every experience
+   * @brief Contains the environment id of every experience
+   */
+  cBuffer<size_t> _environmentIdVector;
+
+  /**
+   * @brief Contains the rewards of every experience
    */
   cBuffer<std::vector<float>> _rewardVector;
 
@@ -649,9 +662,9 @@ class Agent : public Solver
   /**
    * @brief Additional post-processing of episode after episode terminated.
    * @param episodeId The unique identifier of the provided episode
-   * @param episode A vector of experiences pertaining to the episode.
+   * @param episode experiences pertaining to the episode.
    */
-  void processEpisode(size_t episodeId, knlohmann::json &episode);
+  void processEpisode(knlohmann::json &episode);
 
   /**
    * @brief Generates an experience mini batch from the replay memory
@@ -743,6 +756,7 @@ class Agent : public Solver
 
   /**
    * @brief Rescales a given reward by the square root of the sum of squarred rewards
+   * @param environmentId The id of the environment to which this reward belongs
    * @param reward the input reward to rescale
    * @return The normalized reward
    */

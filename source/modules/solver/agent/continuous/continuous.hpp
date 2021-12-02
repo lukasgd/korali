@@ -47,10 +47,6 @@ class Continuous : public Agent
   */
    std::vector<float> _actionScales;
   /**
-  * @brief [Internal Use] Stores the number of parameters that determine the probability distribution for the current state sequence.
-  */
-   size_t _policyParameterCount;
-  /**
   * @brief [Internal Use] Stores the transformations required for each parameter.
   */
    std::vector<std::string> _policyParameterTransformationMasks;

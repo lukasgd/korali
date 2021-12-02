@@ -48,10 +48,11 @@ void Activation::createForwardPipeline()
       if (_function == "Elementwise/Clip") _activationAlgorithm = algorithm::eltwise_clip;
       if (_function == "Elementwise/Linear") _activationAlgorithm = algorithm::eltwise_linear;
       if (_function == "Elementwise/Log") _activationAlgorithm = algorithm::eltwise_log;
-      if (_function == "Elementwise/ReLU") _activationAlgorithm = algorithm::eltwise_relu;
-      if (_function == "Elementwise/Tanh") _activationAlgorithm = algorithm::eltwise_tanh;
       if (_function == "Elementwise/Logistic") _activationAlgorithm = algorithm::eltwise_logistic;
+      if (_function == "Elementwise/ReLU") _activationAlgorithm = algorithm::eltwise_relu;
+      if (_function == "Elementwise/SoftReLU") _activationAlgorithm = algorithm::eltwise_soft_relu;
       if (_function == "Elementwise/SoftSign") KORALI_LOG_ERROR("ONEDNN does not support activation functions of type 'Elementwise/SoftSign'.");
+      if (_function == "Elementwise/Tanh") _activationAlgorithm = algorithm::eltwise_tanh;
 
       // Creating descriptor
       auto activationDesc = eltwise_forward::desc(
@@ -93,11 +94,12 @@ void Activation::createForwardPipeline()
     if (_function == "Elementwise/Clip") activationMode = CUDNN_ACTIVATION_CLIPPED_RELU;
     if (_function == "Elementwise/Linear") activationMode = CUDNN_ACTIVATION_IDENTITY;
     if (_function == "Elementwise/Log") KORALI_LOG_ERROR("Activation function not supported: %s.\n", _function.c_str());
-    if (_function == "Elementwise/ReLU") activationMode = CUDNN_ACTIVATION_RELU;
-    if (_function == "Elementwise/Tanh") activationMode = CUDNN_ACTIVATION_TANH;
     if (_function == "Elementwise/Logistic") activationMode = CUDNN_ACTIVATION_SIGMOID;
-    if (_function == "Softmax") activationMode = CUDNN_ACTIVATION_IDENTITY;
+    if (_function == "Elementwise/ReLU") activationMode = CUDNN_ACTIVATION_RELU;
+    if (_function == "Elementwise/SoftReLU") KORALI_LOG_ERROR("CUDNN does not support activation functions of type 'Elementwise/SoftSign'.");
     if (_function == "Elementwise/SoftSign") KORALI_LOG_ERROR("CUDNN does not support activation functions of type 'Elementwise/SoftSign'.");
+    if (_function == "Elementwise/Tanh") activationMode = CUDNN_ACTIVATION_TANH;
+    if (_function == "Softmax") activationMode = CUDNN_ACTIVATION_IDENTITY;
 
     if (cudnnSetActivationDescriptor(_activationDesc, activationMode, CUDNN_PROPAGATE_NAN, _alpha) != CUDNN_STATUS_SUCCESS) KORALI_LOG_ERROR("Error creating activation algorithm\n");
   }
@@ -180,6 +182,12 @@ void Activation::forwardData(const size_t t)
         else
           _outputValues[i] = _prevLayer->_outputValues[i] * _alpha;
     }
+    if (_function == "Elementwise/SoftReLU")
+    {
+      for (size_t i = 0; i < N * OC; i++)
+        _outputValues[i] = std::log(1.0f + std::exp(_prevLayer->_outputValues[i]));
+    }
+
     if (_function == "Elementwise/Tanh")
     {
       for (size_t i = 0; i < N * OC; i++)
@@ -287,6 +295,13 @@ void Activation::backwardData(const size_t t)
           _prevLayer->_outputGradient[i] = _outputGradient[i] * _alpha;
         }
     }
+    if (_function == "Elementwise/SoftReLU")
+      for (size_t i = 0; i < N * OC; i++)
+      {
+        const float expOutVal = std::exp(_outputValues[i]);
+        _prevLayer->_outputGradient[i] = _outputGradient[i] * (expOutVal - 1.0f) / expOutVal;
+      }
+
     if (_function == "Elementwise/Tanh")
       for (size_t i = 0; i < N * OC; i++)
         _prevLayer->_outputGradient[i] = _outputGradient[i] * (1.0f - _outputValues[i] * _outputValues[i]);
@@ -374,13 +389,14 @@ void Activation::setConfiguration(knlohmann::json& js)
  { KORALI_LOG_ERROR(" + Object: [ activation ] \n + Key:    ['Function']\n%s", e.what()); } 
 {
  bool validOption = false; 
- if (_function == "Elementwise/Linear") validOption = true; 
- if (_function == "Elementwise/Tanh") validOption = true; 
- if (_function == "Elementwise/ReLU") validOption = true; 
- if (_function == "Elementwise/Logistic") validOption = true; 
  if (_function == "Elementwise/Clip") validOption = true; 
+ if (_function == "Elementwise/Linear") validOption = true; 
  if (_function == "Elementwise/Log") validOption = true; 
+ if (_function == "Elementwise/Logistic") validOption = true; 
+ if (_function == "Elementwise/ReLU") validOption = true; 
+ if (_function == "Elementwise/SoftReLU") validOption = true; 
  if (_function == "Elementwise/SoftSign") validOption = true; 
+ if (_function == "Elementwise/Tanh") validOption = true; 
  if (_function == "Softmax") validOption = true; 
  if (validOption == false) KORALI_LOG_ERROR(" + Unrecognized value (%s) provided for mandatory setting: ['Function'] required by activation.\n", _function.c_str()); 
 }

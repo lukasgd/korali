@@ -49,10 +49,14 @@ void runEnvironment(korali::Sample &s)
 
     // Scaling to lower-upper bounds
     auto [lowerBounds, upperBounds] = _environment->getActionBounds();
-    //    for (size_t i = 0; i < action.size(); i++)
-    //     action[i] = action[i] * (upperBounds[i] - lowerBounds[i]) * 0.5;
+    for (size_t i = 0; i < action.size(); i++)
+    {
+        if (action[i] > upperBounds[i]) action[i] = upperBounds[i];
+        else if (action[i] < lowerBounds[i]) action[i] = lowerBounds[i];
+        action[i] = action[i] * (upperBounds[i] - lowerBounds[i]) + lowerBounds[0];
+    }
 
-    action[0] = action[0] * (upperBounds[0] - lowerBounds[0]) * 0.5f + lowerBounds[0];
+    //action[0] = action[0] * (upperBounds[0] - lowerBounds[0]) + lowerBounds[0];
 
     // Printing Action:
     // if (curActionIndex % 20 == 0)

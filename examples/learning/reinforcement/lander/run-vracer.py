@@ -15,8 +15,6 @@ e = korali.Experiment()
 e["Problem"]["Type"] = "Reinforcement Learning / Continuous"
 e["Problem"]["Environment Function"] = env
 e["Problem"]["Actions Between Policy Updates"] = 1
-e["Problem"]["Training Reward Threshold"] = 1.0
-e["Problem"]["Policy Testing Episodes"] = 10
 
 ### Defining State variables
 
@@ -60,12 +58,12 @@ e["Solver"]["Neural Network"]["Hidden Layers"][0]["Output Channels"] = 16
 
 ### Defining Termination Criteria
 
-e["Solver"]["Termination Criteria"]["Testing"]["Target Average Reward"] = 0.0
+e["Solver"]["Termination Criteria"]["Max Generations"] = 50
 
 ### Setting file output configuration
 
 e["Console Output"]["Verbosity"] = "Detailed"
-e["File Output"]["Enabled"] = False
+e["File Output"]["Enabled"] = True
  
 ### Running Training Experiment
 

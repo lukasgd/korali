@@ -2,7 +2,7 @@
 set -e
 
 # Always update this if you made changes to the Dockerfile
-TAG=3.0.0
+TAG=3.0.1
 
 podman build \
     -t "cselab/korali:${TAG}" \

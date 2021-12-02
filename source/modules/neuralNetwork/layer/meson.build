@@ -21,6 +21,9 @@ korali_source += module_source
 korali_config += module_config
 
 subdir('activation')
+subdir('convolution')
+subdir('deconvolution')
+subdir('pooling')
 subdir('input')
 subdir('linear')
 subdir('output')

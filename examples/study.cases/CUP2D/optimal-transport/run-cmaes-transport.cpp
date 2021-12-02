@@ -19,24 +19,22 @@ int main(int argc, char *argv[])
   _argc = argc;
   _argv = argv;
  
-  // Init CUP2D
-  _environment = new Simulation(_argc, _argv);
-  _environment->init();
-
+  // Setting results path
   std::string resultsPath = "_results_transport_cmaes/";
 
   // Creating Experiment
   auto e = korali::Experiment();
 
+  // Check if existing results are there and continuing them
   auto found = e.loadState(resultsPath + std::string("latest"));
   if (found == true) printf("[Korali] Continuing execution from previous run...\n");
 
+  // Configuring Experiment
   e["Random Seed"] = 0xC0FEE;
   e["Problem"]["Type"] = "Optimization";
   e["Problem"]["Objective Function"] = &runEnvironmentCmaes;
   
- 
-  // Configuring MO-CMA-ES parameters
+  // Configuring CMA-ES parameters
   e["Solver"]["Type"] = "Optimizer/CMAES";
   e["Solver"]["Population Size"] = 32;
   e["Solver"]["Mu Value"] = 16;
@@ -65,14 +63,12 @@ int main(int argc, char *argv[])
   e["Variables"][4]["Upper Bound"] = 10.;
 
   ////// Setting Korali output configuration
-
   e["Console Output"]["Verbosity"] = "Detailed";
   e["File Output"]["Enabled"] = true;
   e["File Output"]["Frequency"] = 1;
   e["File Output"]["Path"] = resultsPath;
 
   ////// Running Experiment
-
   auto k = korali::Engine();
 
   k["Conduit"]["Type"] = "Distributed";

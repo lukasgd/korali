@@ -24,12 +24,12 @@ void __className__::initialize()
   _resultSizePipe.clear();
   _resultContentPipe.clear();
   _inputsPipe.clear();
-  while (!_workerQueue.empty()) _workerQueue.pop();
+  _workerQueue.clear();
 
   for (size_t i = 0; i < _concurrentJobs; i++) _resultSizePipe.push_back(vector<int>(2));
   for (size_t i = 0; i < _concurrentJobs; i++) _resultContentPipe.push_back(vector<int>(2));
   for (size_t i = 0; i < _concurrentJobs; i++) _inputsPipe.push_back(vector<int>(2));
-  for (size_t i = 0; i < _concurrentJobs; i++) _workerQueue.push(i);
+  for (size_t i = 0; i < _concurrentJobs; i++) _workerQueue.push_back(i);
 
   // Opening Inter-process communicator pipes
   for (size_t i = 0; i < _concurrentJobs; i++)
@@ -49,13 +49,14 @@ void __className__::terminateServer()
   auto terminationJs = knlohmann::json();
   terminationJs["Conduit Action"] = "Terminate";
 
-  string terminationString = terminationJs.dump();
-  size_t terminationStringSize = terminationString.size();
+  // Serializing message in binary form
+  std::vector<std::uint8_t> msgData = knlohmann::json::to_cbor(terminationJs);
+  size_t msgSize = msgData.size();
 
   for (size_t i = 0; i < _concurrentJobs; i++)
   {
-    write(_inputsPipe[i][1], &terminationStringSize, sizeof(size_t));
-    write(_inputsPipe[i][1], terminationString.c_str(), terminationStringSize * sizeof(char));
+    write(_inputsPipe[i][1], &msgSize, sizeof(size_t));
+    write(_inputsPipe[i][1], msgData.data(), msgSize * sizeof(uint8_t));
   }
 
   for (size_t i = 0; i < _concurrentJobs; i++)
@@ -92,61 +93,34 @@ void __className__::initServer()
 
 void __className__::broadcastMessageToWorkers(knlohmann::json &message)
 {
-  string messageString = message.dump();
-  size_t messageStringSize = messageString.size();
+  // Serializing message in binary form
+  std::vector<std::uint8_t> msgData = knlohmann::json::to_cbor(message);
+  size_t messageSize = msgData.size();
 
   for (size_t i = 0; i < _concurrentJobs; i++)
   {
-    write(_inputsPipe[i][1], &messageStringSize, sizeof(size_t));
-
-    size_t curPos = 0;
-    while (curPos < messageStringSize)
-    {
-      size_t bufSize = BUFFERSIZE;
-      if (curPos + bufSize > messageStringSize) bufSize = messageStringSize - curPos;
-      write(_inputsPipe[i][1], messageString.c_str() + curPos, bufSize * sizeof(char));
-      curPos += bufSize;
-    }
+    write(_inputsPipe[i][1], &messageSize, sizeof(size_t));
+    write(_inputsPipe[i][1], msgData.data(), messageSize * sizeof(uint8_t));
   }
 }
 
 void __className__::sendMessageToEngine(knlohmann::json &message)
 {
-  string messageString = message.dump();
-  size_t messageSize = messageString.size();
+  // Serializing message in binary form
+  std::vector<std::uint8_t> msgData = knlohmann::json::to_cbor(message);
+  size_t messageSize = msgData.size();
 
   write(_resultSizePipe[_workerId][1], &messageSize, sizeof(size_t));
-
-  size_t curPos = 0;
-  while (curPos < messageSize)
-  {
-    size_t bufSize = BUFFERSIZE;
-    if (curPos + bufSize > messageSize) bufSize = messageSize - curPos;
-    write(_resultContentPipe[_workerId][1], messageString.c_str() + curPos, bufSize * sizeof(char));
-    curPos += bufSize;
-  }
+  write(_resultContentPipe[_workerId][1], msgData.data(), messageSize * sizeof(uint8_t));
 }
 
 knlohmann::json __className__::recvMessageFromEngine()
 {
-  size_t inputStringSize;
-  read(_inputsPipe[_workerId][0], &inputStringSize, sizeof(size_t));
-
-  std::vector<char> inputString(inputStringSize + BUFFERSIZE);
-
-  size_t curPos = 0;
-  while (curPos < inputStringSize)
-  {
-    size_t bufSize = BUFFERSIZE;
-    if (curPos + bufSize > inputStringSize) bufSize = inputStringSize - curPos;
-    read(_inputsPipe[_workerId][0], &inputString[curPos], bufSize * sizeof(char));
-    curPos += bufSize;
-    sched_yield(); // Guarantees MacOs finishes the pipe reading
-  }
-  inputString[inputStringSize] = '\0';
-
-  auto message = knlohmann::json::parse(inputString);
-
+  size_t inputSize;
+  read(_inputsPipe[_workerId][0], &inputSize, sizeof(size_t));
+  std::vector<uint8_t> msgData(inputSize);
+  read(_inputsPipe[_workerId][0], msgData.data(), inputSize * sizeof(uint8_t));
+  auto message = knlohmann::json::from_cbor(msgData);
   return message;
 }
 
@@ -166,24 +140,14 @@ void __className__::listenWorkers()
     // Identifying current sample
     auto sample = _workerToSampleMap[i];
 
-    size_t resultStringSize;
-    int readBytes = read(_resultSizePipe[i][0], &resultStringSize, sizeof(size_t));
+    size_t inputSize;
+    int readBytes = read(_resultSizePipe[i][0], &inputSize, sizeof(size_t));
 
     if (readBytes > 0)
     {
-      char resultString[resultStringSize + BUFFERSIZE];
-
-      size_t curPos = 0;
-      while (curPos < resultStringSize)
-      {
-        size_t bufSize = BUFFERSIZE;
-        if (curPos + bufSize > resultStringSize) bufSize = resultStringSize - curPos;
-        read(_resultContentPipe[i][0], resultString + curPos, bufSize * sizeof(char));
-        curPos += bufSize;
-      }
-      resultString[resultStringSize] = '\0';
-
-      auto message = knlohmann::json::parse(resultString);
+      std::vector<uint8_t> msgData(inputSize);
+      read(_resultContentPipe[i][0], msgData.data(), inputSize * sizeof(uint8_t));
+      auto message = knlohmann::json::from_cbor(msgData);
       sample->_messageQueue.push(message);
     }
   }
@@ -213,11 +177,12 @@ void __className__::popEngine()
 
 void __className__::sendMessageToSample(Sample &sample, knlohmann::json &message)
 {
-  string messageString = message.dump();
-  size_t messageStringSize = messageString.size();
+  // Serializing message in binary form
+  std::vector<std::uint8_t> msgData = knlohmann::json::to_cbor(message);
+  size_t messageSize = msgData.size();
 
-  write(_inputsPipe[sample._workerId][1], &messageStringSize, sizeof(size_t));
-  write(_inputsPipe[sample._workerId][1], messageString.c_str(), messageStringSize * sizeof(char));
+  write(_inputsPipe[sample._workerId][1], &messageSize, sizeof(size_t));
+  write(_inputsPipe[sample._workerId][1], msgData.data(), messageSize * sizeof(uint8_t));
 }
 
 bool __className__::isRoot()
@@ -228,6 +193,11 @@ bool __className__::isRoot()
 size_t __className__::getProcessId()
 {
   return _workerId;
+}
+
+size_t __className__::getWorkerCount()
+{
+ return _concurrentJobs;
 }
 
 __moduleAutoCode__;

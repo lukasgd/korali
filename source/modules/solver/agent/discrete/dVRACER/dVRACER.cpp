@@ -229,14 +229,14 @@ void dVRACER::calculatePolicyGradients(const std::vector<std::pair<size_t,size_t
       // If experience is non-terminal, add Vtbc
       if (_terminationVector[expId] == e_nonTerminal)
       {
-        float nextExpVtbc = _retraceValueVector[expId + 1][agentId];
+        const float nextExpVtbc = _retraceValueVector[expId + 1][agentId];
         Qret += _discountFactor * nextExpVtbc;
       }
 
       // If experience is truncated, add truncated state value
       if (_terminationVector[expId] == e_truncated)
       {
-        float nextExpVtbc = _truncatedStateValueVector[expId][agentId];
+        const float nextExpVtbc = _truncatedStateValueVector[expId][agentId];
         Qret += _discountFactor * nextExpVtbc;
       }
 
@@ -351,7 +351,7 @@ void dVRACER::runPolicy(const std::vector<std::vector<std::vector<float>>> &stat
     }
 
     // Calculating inverse of Sum_i(e^Q(s,a_i))
-    float invSumExpQVal = 1.0f / sumExpQVal;
+    const float invSumExpQVal = 1.0f / sumExpQVal;
 
     // Normalizing action probabilities
     for (size_t i = 0; i < _problem->_actionCount; i++)

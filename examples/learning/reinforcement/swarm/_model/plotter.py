@@ -1,4 +1,6 @@
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from matplotlib.colors import Normalize
@@ -43,9 +45,9 @@ def plotSwarmCentered( sim, t ):
 	ax.quiver(locations[:,0],locations[:,1],locations[:,2],
 		      directions[:,0], directions[:,1], directions[:,2],
 		      color=cmap(norm(np.arange(sim.N))))
-	ax.set_xlim([center[0]-1,center[0]+1])
-	ax.set_ylim([center[1]-1,center[1]+1])
-	ax.set_zlim([center[2]-1,center[2]+1])
+	ax.set_xlim([center[0]-3,center[0]+3])
+	ax.set_ylim([center[1]-3,center[1]+3])
+	ax.set_zlim([center[2]-3,center[2]+3])
 	plt.savefig("_figures/swarm_t={:04d}.png".format(t))
 	plt.close()
 

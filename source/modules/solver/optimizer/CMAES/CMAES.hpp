@@ -184,10 +184,6 @@ class CMAES : public Optimizer
   */
    double _previousBestValue;
   /**
-  * @brief [Internal Use] Index of the best sample in current generation.
-  */
-   size_t _bestSampleIndex;
-  /**
   * @brief [Internal Use] Best ever model evaluation as of previous generation.
   */
    double _previousBestEverValue;

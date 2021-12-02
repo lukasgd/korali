@@ -92,6 +92,7 @@ int main(int argc, char *argv[])
 
   k["Conduit"]["Type"] = "Distributed";
   k["Conduit"]["Ranks Per Worker"] = n;
+  k["Conduit"]["Engine Ranks"] = 2;
   k["Profiling"]["Detail"] = "Full";
   k["Profiling"]["Frequency"] = 0.5;
 

@@ -1,4 +1,5 @@
 from swarm import *
+from pathlib import Path
 
 def environment( args, s ):
     # set set parameters and initialize environment
@@ -23,6 +24,13 @@ def environment( args, s ):
     if done: 
         print("Initial configuration is terminal state...")
     while (step < numTimesteps) and (not done):
+        if args["visualize"]:
+            Path("./_figures").mkdir(parents=True, exist_ok=True)
+            # fixed camera
+            # plotSwarm( sim, step )
+            # camera following center of swarm
+            plotSwarmCentered( sim, step )
+
         # Getting new action
         s.update()
 

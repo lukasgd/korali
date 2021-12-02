@@ -1,11 +1,11 @@
 #!/bin/bash -l
 #SBATCH --job-name="ABF3D_VRACER"
 #SBATCH --output=ABF3D_VRACER_%j.out
-#SBATCH --time=24:00:00
+#SBATCH --time=4:00:00
 #SBATCH --nodes=1
-#SBATCH --account=eth2
+#SBATCH --account=s929
 #SBATCH --partition=normal
-#SBATCH --constraint=mc
+#SBATCH --constraint=gpu
 
 date
 
@@ -22,7 +22,9 @@ popd
 
 pushd $expDir
 
-OMP_NUM_THREADS=36 ./run-vracer
+OMP_NUM_THREADS=12 ./run-vracer
+python -m korali.rlview --dir _result_vracer --out vracer.png
+
 
 popd
 

@@ -1,21 +1,21 @@
 #! /usr/bin/env bash
 
 if [ $# -lt 1 ] ; then
-	echo "Usage: ./sbatch-vracer-swarm.sh RUNNAME"
+	echo "Usage: ./sbatch-eval-vracer-prediction.sh RUNNAME"
 	exit 1
 fi
 if [ $# -gt 0 ] ; then
 	RUNNAME=$1
 fi
 
-# number of agents
-NNODES=64
+# Number of parallel environments
+NNODES=1
 
-# setup run directory and copy necessary files
+# Setup run directory and copy necessary files
 RUNPATH="${SCRATCH}/korali/${RUNNAME}"
-mkdir -p ${RUNPATH}
-cp run-vracer-swarm ${RUNPATH}
-cp settings.sh ${RUNPATH}
+# mkdir -p ${RUNPATH}
+cp eval-vracer-prediction ${RUNPATH}
+# cp settings.sh ${RUNPATH}
 cd ${RUNPATH}
 
 source settings.sh
@@ -34,7 +34,9 @@ cat <<EOF >daint_sbatch
 #SBATCH --constraint=gpu
 #SBATCH --account=s929
 
-srun ./run-vracer-swarm ${OPTIONS} -shapes "${OBJECTS}"
+# export OMP_NUM_THREADS=12
+
+srun ./eval-vracer-prediction ${OPTIONS} -shapes "${OBJECTS}" -nAgents $NAGENTS
 EOF
 
 chmod 755 daint_sbatch

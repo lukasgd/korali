@@ -25,7 +25,7 @@ void _workerWrapper()
 
 void __className__::initialize()
 {
-  _workerQueue.push(0);
+  _workerQueue.push_back(0);
 }
 
 void __className__::initServer()
@@ -111,6 +111,11 @@ bool __className__::isRoot()
 size_t __className__::getProcessId()
 {
   return 0;
+}
+
+size_t __className__::getWorkerCount()
+{
+ return 1;
 }
 
 __moduleAutoCode__;

@@ -132,7 +132,7 @@ void Experiment::saveState()
   if (_fileOutputUseMultipleFiles == true)
     sprintf(genFileName, "gen%08lu.json", _currentGeneration);
   else
-    sprintf(genFileName, "genLatest.json", _currentGeneration);
+    sprintf(genFileName, "genLatest.json");
 
   // If results directory doesn't exist, create it
   if (!dirExists(_fileOutputPath)) mkdir(_fileOutputPath);
@@ -217,18 +217,6 @@ void Experiment::finalize()
   if (_isInitialized == true) co_delete(_thread);
   delete _logger;
   delete _problem;
-}
-
-std::vector<std::vector<float>> Experiment::getEvaluation(const std::vector<std::vector<std::vector<float>>> &inputBatch)
-{
-  // First check that the experiment has been initialized.
-  if (_isInitialized == false) initialize();
-
-  auto learner = dynamic_cast<solver::Learner *>(_k->_solver);
-  if (learner != NULL)
-    return learner->getEvaluation(inputBatch);
-  else
-    KORALI_LOG_ERROR("This solver does not support evaluation operations.\n");
 }
 
 knlohmann::json &Experiment::operator[](const std::string &key) { return _js[key]; }

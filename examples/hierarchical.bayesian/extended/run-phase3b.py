@@ -9,17 +9,22 @@ from model import *
 
 # Creating hierarchical Bayesian problem from previous two problems
 e = korali.Experiment()
-theta = korali.Experiment()
+sub = korali.Experiment()
 psi = korali.Experiment()
 
-x = getReferencePoints("_setup/data/", 0)
-theta.loadState('_setup/results_phase_1/000/latest')
+# Loading previous results
 psi.loadState('_setup/results_phase_2/latest')
+sub.loadState('_setup/results_phase_1/000/latest')
+
+# Specifying reference data
+x = getReferencePoints("_setup/data/", 0)
+
+# We need to redefine the subproblem's computational model
+sub["Problem"]["Computational Model"] = lambda d: logistic(x, d)
 
 e["Problem"]["Type"] = "Hierarchical/Theta"
 e["Problem"]["Psi Experiment"] = psi
-e["Problem"]["Sub Experiment"] = theta
-e["Problem"]["Sub Experiment Model"] = lambda d: logistic(x, d)
+e["Problem"]["Sub Experiment"] = sub
 
 e["Solver"]["Type"] = "Sampler/TMCMC"
 e["Solver"]["Population Size"] = 1000

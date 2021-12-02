@@ -5,6 +5,7 @@ sys.path.append('./_model')
 from env import *
 import argparse
 import numpy as np
+from mpi4py import MPI
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -15,7 +16,7 @@ parser.add_argument(
 parser.add_argument(
     '--maxGenerations',
     help='Maximum Number of generations to run',
-    default=10000,
+    default=50,
     required=False)    
 parser.add_argument(
     '--optimizer',
@@ -25,17 +26,12 @@ parser.add_argument(
 parser.add_argument(
     '--learningRate',
     help='Learning rate for the selected optimizer',
-    default=1e-3,
+    default=3e-3,
     required=False)
 parser.add_argument(
     '--concurrentEnvironments',
     help='Number of environments to run concurrently',
     default=1,
-    required=False)
-parser.add_argument(
-    '--testRewardThreshold',
-    help='Threshold for the testing MSE, under which the run will report an error',
-    default=150,
     required=False)
 args = parser.parse_args()
 
@@ -49,12 +45,11 @@ k = korali.Engine()
 e = korali.Experiment()
 
 ### Defining the Cartpole problem's configuration
-
+e.loadState("_korali_result/latest")
 e["Problem"]["Type"] = "Reinforcement Learning / Continuous"
 e["Problem"]["Environment Function"] = env
-e["Problem"]["Training Reward Threshold"] = 495
-e["Problem"]["Policy Testing Episodes"] = 30
-e["Problem"]["Actions Between Policy Updates"] = 5
+e["Problem"]["Environment Count"] = 3
+e["Problem"]["Actions Between Policy Updates"] = 1
 
 e["Variables"][0]["Name"] = "Cart Position"
 e["Variables"][0]["Type"] = "State"
@@ -89,7 +84,6 @@ e["Solver"]["Experience Replay"]["Off Policy"]["REFER Beta"]= 0.3
 e["Solver"]["Discount Factor"] = 0.99
 e["Solver"]["Learning Rate"] = float(args.learningRate)
 e["Solver"]["Mini Batch"]["Size"] = 32
-
 e["Solver"]["State Rescaling"]["Enabled"] = False
 e["Solver"]["Reward"]["Rescaling"]["Enabled"] = False
 
@@ -113,27 +107,16 @@ e["Solver"]["Neural Network"]["Hidden Layers"][3]["Type"] = "Layer/Activation"
 e["Solver"]["Neural Network"]["Hidden Layers"][3]["Function"] = "Elementwise/Tanh"
 
 ### Defining Termination Criteria
-
-e["Solver"]["Termination Criteria"]["Max Generations"] = 10000
+e["Solver"]["Termination Criteria"]["Max Generations"] = 100
 
 ### Setting file output configuration
-
 e["File Output"]["Enabled"] = True
+
+### Setting conduit to run with MPI
+# e["Solver"]["Experience Replay"]["Serialize"] = True
+# k["Conduit"]["Type"] = "Distributed"
+# k.setMPIComm(MPI.COMM_WORLD)
 
 ### Running Experiment
 
 k.run(e)
-
-### Now we run a few test samples and check their reward
-
-e["Solver"]["Mode"] = "Testing"
-e["Solver"]["Testing"]["Sample Ids"] = list(range(5))
-
-k.run(e)
-
-averageTestReward = np.average(e["Solver"]["Testing"]["Reward"])
-print("Average Reward: " + str(averageTestReward))
-if (averageTestReward < 150):
- print("Cartpole example did not reach minimum testing average.")
- exit(-1)
-

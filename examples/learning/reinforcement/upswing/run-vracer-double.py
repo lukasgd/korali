@@ -14,8 +14,6 @@ e = korali.Experiment()
 
 e["Problem"]["Type"] = "Reinforcement Learning / Continuous"
 e["Problem"]["Environment Function"] = env
-e["Problem"]["Training Reward Threshold"] = 750
-e["Problem"]["Policy Testing Episodes"] = 20
 e["Problem"]["Actions Between Policy Updates"] = 10
 
 e["Variables"][0]["Name"] = "Cart Position"
@@ -34,7 +32,7 @@ e["Variables"][7]["Initial Exploration Noise"] = 1.0
 
 ### Defining Termination Criteria
 
-e["Solver"]["Termination Criteria"]["Testing"]["Target Average Reward"] = 900
+e["Solver"]["Termination Criteria"]["Max Generations"] = 100
 
 ### If this is test mode, run only a couple generations
 if len(sys.argv) == 2:

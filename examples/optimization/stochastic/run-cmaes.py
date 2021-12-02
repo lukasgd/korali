@@ -22,19 +22,20 @@ e["Random Seed"] = 0xC0FEE
 e["Problem"]["Type"] = "Optimization"
 e["Problem"]["Objective Function"] = negative_sphere
 
-dim = 10
+dim = 2
 
 # Defining the problem's variables.
 for i in range(dim):
     e["Variables"][i]["Name"] = "X" + str(i)
-    e["Variables"][i]["Lower Bound"] = -25.0
-    e["Variables"][i]["Upper Bound"] = +25.0
-    e["Variables"][i]["Initial Standard Deviation"] = 15.0/math.sqrt(dim)
+    e["Variables"][i]["Initial Value"] = 0.0
+    e["Variables"][i]["Initial Standard Deviation"] = 1.0/math.sqrt(dim)
 
 # Configuring CMA-ES parameters
 e["Solver"]["Type"] = "Optimizer/CMAES"
-e["Solver"]["Population Size"] = 32
+e["Solver"]["Population Size"] = 8
+e["Solver"]["Mu Value"] = 4
 e["Solver"]["Termination Criteria"]["Min Value Difference Threshold"] = 1e-32
+e["Solver"]["Termination Criteria"]["Max Generations"] = 20
 
 # Configuring results path
 e["File Output"]["Enabled"] = True

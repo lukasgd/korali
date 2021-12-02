@@ -719,6 +719,7 @@ namespace
   // Creating optimizer configuration Json
   knlohmann::json optimizerJs;
   optimizerJs["Type"] = "Optimizer/CMAES";
+  optimizerJs["Population Size"] = 4;
 
   // Creating module
   CMAES* opt;
@@ -788,7 +789,7 @@ namespace
 
   optimizerJs = baseOptJs;
   experimentJs = baseExpJs;
-  optimizerJs["Current Population Size"] = 1;
+  optimizerJs["Current Population Size"] = 2;
   ASSERT_NO_THROW(opt->setConfiguration(optimizerJs));
 
   optimizerJs = baseOptJs;
@@ -934,16 +935,6 @@ namespace
   optimizerJs = baseOptJs;
   experimentJs = baseExpJs;
   optimizerJs["Previous Best Value"] = std::vector<double>({1.0});
-  ASSERT_ANY_THROW(opt->setConfiguration(optimizerJs));
-
-  optimizerJs = baseOptJs;
-  experimentJs = baseExpJs;
-  optimizerJs["Best Sample Index"] = 1;
-  ASSERT_NO_THROW(opt->setConfiguration(optimizerJs));
-
-  optimizerJs = baseOptJs;
-  experimentJs = baseExpJs;
-  optimizerJs["Best Sample Index"] = std::vector<double>({1.0});
   ASSERT_ANY_THROW(opt->setConfiguration(optimizerJs));
 
   optimizerJs = baseOptJs;
@@ -1433,7 +1424,7 @@ namespace
 
   optimizerJs = baseOptJs;
   experimentJs = baseExpJs;
-  optimizerJs["Population Size"] = 1;
+  optimizerJs["Population Size"] = 2;
   ASSERT_NO_THROW(opt->setConfiguration(optimizerJs));
 
   optimizerJs = baseOptJs;

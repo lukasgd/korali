@@ -4,7 +4,7 @@ Layers
 
 This module contains the descriptions of the layers to form a :ref:`Neural Network <module-neuralnetwork>`. 
 
-Besides the Korali lightweight implementation, we support
+We support
 
 + Intel's `oneDNN <https://github.com/oneapi-src/oneDNN>`_ library.
 + Nvidia's `cuDNN <https://developer.nvidia.com/cudnn>`_ library.

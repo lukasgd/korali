@@ -240,7 +240,7 @@ e["Random Seed"] = 1337
 k = korali.Engine()
 k.run(e)
 
-checkInfeasible(e, 50)
+checkInfeasible(e, 10)
 
 ### Corner Case: Terminating on Max Infeasible Resamplings
 
@@ -259,7 +259,7 @@ e["Solver"]["Type"] = "Optimizer/CMAES"
 e["Solver"]["Population Size"] = 16
 e["Solver"]["Viability Population Size"] = 2
 e["Solver"]["Termination Criteria"]["Max Generations"] = 100
-e["Solver"]["Termination Criteria"]["Max Infeasible Resamplings"] = 100
+e["Solver"]["Termination Criteria"]["Max Infeasible Resamplings"] = 50
 
 e["Console Output"]["Frequency"] = 10
 e["Console Output"]["Verbosity"] = "Detailed"
@@ -269,7 +269,7 @@ e["Random Seed"] = 1337
 k = korali.Engine()
 k.run(e)
 
-checkInfeasible(e, 100)
+checkInfeasible(e, 50)
 
 ### Corner Case: Trigger Min StdDev Deviation Update Warning
 

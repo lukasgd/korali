@@ -8,11 +8,8 @@
 
 int _argc;
 char **_argv;
-
-Simulation *_environment;
 std::mt19937 _randomGenerator;
 
-// Swimmer following an obstacle
 void runEnvironmentVracer(korali::Sample &s)
 {
   // Setting seed
@@ -38,6 +35,10 @@ void runEnvironmentVracer(korali::Sample &s)
   auto curPath = std::filesystem::current_path();
   std::filesystem::current_path(resDir);
 
+  // Creating simulation environment
+  Simulation *_environment = new Simulation(_argc, _argv);
+  _environment->init();
+
   // Obtaining agent
   SmartCylinder* agent = dynamic_cast<SmartCylinder *>(_environment->getShapes()[0]);
 
@@ -45,9 +46,11 @@ void runEnvironmentVracer(korali::Sample &s)
   _environment->sim.dumpTime = s["Custom Settings"]["Dump Frequency"].get<double>();
 
   // Reseting environment and setting initial conditions
-  _environment->resetRL();
   std::vector<double> start{1., 2.};
   setInitialConditions(agent, start, s["Mode"] == "Training");
+
+  // After moving the agent, the obstacles have to be restarted
+  _environment->startObstacles();
 
   // Set target 
   std::vector<double> target{3., 2.};
@@ -148,6 +151,12 @@ void runEnvironmentVracer(korali::Sample &s)
     curStep++;
   }
 
+  // Flush CUP logger
+  logger.flush();
+
+  // delete simulation class
+  delete _environment;
+
   // Setting finalization status
   if (done == true)
     s["Termination"] = "Terminal";
@@ -159,63 +168,6 @@ void runEnvironmentVracer(korali::Sample &s)
 
   // Closing log file
   fclose(logFile);
-}
-
-void setInitialConditions(SmartCylinder* agent, std::vector<double>& start, bool randomized)
-{
-  // Initial fixed conditions
-  double locationX = start[0];
-  double locationY = start[1];
-
-  // or with noise
-  if (randomized)
-  {
-    std::uniform_real_distribution<double> dis(-0.01, 0.01);
-
-    double distX = dis(_randomGenerator);
-    double distY = dis(_randomGenerator);
-
-    locationX += distX;
-    locationY += distY;
-  }
-
-  printf("[Korali] Initial Conditions:\n");
-  printf("[Korali] locationX: %f\n", locationX);
-  printf("[Korali] locationY: %f\n", locationY);
-
-  // Setting initial position and orientation for the fish
-  double C[2] = { locationX, locationY};
-  agent->setCenterOfMass(C);
-
-  // After moving the agent, the obstacles have to be restarted
-  _environment->startObstacles();
-
-  // Reset energy
-  agent->energy = 0.;
-}
-
-bool isTerminal(SmartCylinder* agent, std::vector<double>& target )
-{
-  const double dX = (agent->center[0] - target[0]);
-  const double dY = (agent->center[1] - target[1]);
-
-  const double dTarget = std::sqrt(dX*dX+dY*dY);
-
-  bool terminal = false;
-  if ( dTarget < 1e-1 ) terminal = true;
-
-  return terminal;
-}
-
-std::vector<double> logDivision(double start, double end, size_t nvertices)
-{
-    std::vector<double> vertices(nvertices, 0.0);
-    for(size_t idx = 0; idx < nvertices; ++idx)
-    {
-        vertices[idx] = std::exp((double) idx / (double) (nvertices-1.0) * std::log(end-start+1.0)) - 1.0 + start;
-	printf("v %zu %lf\n", idx, vertices[idx]);
-    }
-    return vertices;
 }
 
 void runEnvironmentMocmaes(korali::Sample &s)
@@ -241,6 +193,10 @@ void runEnvironmentMocmaes(korali::Sample &s)
   auto curPath = std::filesystem::current_path();
   std::filesystem::current_path(resDir);
 
+  // Creating simulation environment
+  Simulation *_environment = new Simulation(_argc, _argv);
+  _environment->init();
+
   // Environment Setup
   double startX = 1.0;
   double endX = 3.0;
@@ -265,9 +221,11 @@ void runEnvironmentMocmaes(korali::Sample &s)
   SmartCylinder* agent = dynamic_cast<SmartCylinder *>(_environment->getShapes()[0]);
 
   // Resetting environment and setting initial conditions
-  _environment->resetRL();
   std::vector<double> start{startX, height};
   setInitialConditions(agent, start, false);
+
+  // After moving the agent, the obstacles have to be restarted
+  _environment->startObstacles();
 
   // Get parameterisation of force from MOCMA
   std::vector<double> params = s["Parameters"];
@@ -367,12 +325,17 @@ void runEnvironmentMocmaes(korali::Sample &s)
   printf("Objectives: %f (time), %f (energy) (total steps %zu) \n", t, energy, curStep);
   s["F(x)"] = objectives;
 
+  // Flush CUP logger
+  logger.flush();
+
+  // delete simulation class
+  delete _environment;
+
   // Switching back to experiment directory
   std::filesystem::current_path(curPath);
 
   // Closing log file
   fclose(logFile);
-
 }
 
 void runEnvironmentCmaes(korali::Sample& s)
@@ -398,6 +361,10 @@ void runEnvironmentCmaes(korali::Sample& s)
   auto curPath = std::filesystem::current_path();
   std::filesystem::current_path(resDir);
 
+  // Creating simulation environment
+  Simulation *_environment = new Simulation(_argc, _argv);
+  _environment->init();
+
   // Environment Setup
   double startX = 1.0;
   double endX = 3.0;
@@ -420,9 +387,11 @@ void runEnvironmentCmaes(korali::Sample& s)
   SmartCylinder* agent = dynamic_cast<SmartCylinder *>(_environment->getShapes()[0]);
 
   // Reseting environment and setting initial conditions
-  _environment->resetRL();
   std::vector<double> start{startX, height};
   setInitialConditions(agent, start, false);
+
+  // After moving the agent, the obstacles have to be restarted
+  _environment->startObstacles();
 
   // Get parameterisation of force from CMA
   std::vector<double> params = s["Parameters"];
@@ -528,10 +497,69 @@ void runEnvironmentCmaes(korali::Sample& s)
   printf("Objectives: %f (time), %f (energy) (total steps %zu) \n", t, energy, curStep);
   s["F(x)"] = -t;
 
+  // Flush CUP logger
+  logger.flush();
+
+  // delete simulation class
+  delete _environment;
+
   // Switching back to experiment directory
   std::filesystem::current_path(curPath);
 
   // Closing log file
   fclose(logFile);
+}
 
+void setInitialConditions(SmartCylinder* agent, std::vector<double>& start, bool randomized)
+{
+  // Initial fixed conditions
+  double locationX = start[0];
+  double locationY = start[1];
+
+  // or with noise
+  if (randomized)
+  {
+    std::uniform_real_distribution<double> dis(-0.01, 0.01);
+
+    double distX = dis(_randomGenerator);
+    double distY = dis(_randomGenerator);
+
+    locationX += distX;
+    locationY += distY;
+  }
+
+  printf("[Korali] Initial Conditions:\n");
+  printf("[Korali] locationX: %f\n", locationX);
+  printf("[Korali] locationY: %f\n", locationY);
+
+  // Setting initial position and orientation for the fish
+  double C[2] = { locationX, locationY};
+  agent->setCenterOfMass(C);
+
+  // Reset energy
+  agent->energy = 0.;
+}
+
+bool isTerminal(SmartCylinder* agent, std::vector<double>& target )
+{
+  const double dX = (agent->center[0] - target[0]);
+  const double dY = (agent->center[1] - target[1]);
+
+  const double dTarget = std::sqrt(dX*dX+dY*dY);
+
+  bool terminal = false;
+  if ( dTarget < 1e-1 ) terminal = true;
+
+  return terminal;
+}
+
+std::vector<double> logDivision(double start, double end, size_t nvertices)
+{
+    std::vector<double> vertices(nvertices, 0.0);
+    for(size_t idx = 0; idx < nvertices; ++idx)
+    {
+        vertices[idx] = std::exp((double) idx / (double) (nvertices-1.0) * std::log(end-start+1.0)) - 1.0 + start;
+  printf("v %zu %lf\n", idx, vertices[idx]);
+    }
+    return vertices;
 }

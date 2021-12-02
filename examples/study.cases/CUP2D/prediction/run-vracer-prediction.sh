@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ $# -lt 1 ] ; then
-	echo "Usage: ./run-vracer-swarm.sh RUNNAME"
+	echo "Usage: ./run-vracer-prediction.sh RUNNAME"
 	exit 1
 fi
 if [ $# -gt 0 ] ; then
@@ -18,7 +18,7 @@ fi
 
 RUNPATH="${SCRATCH}/korali/${RUNNAME}"
 mkdir -p ${RUNPATH}
-cp run-vracer-swarm ${RUNPATH}
+cp run-vracer-prediction ${RUNPATH}
 cp settings.sh ${RUNPATH}
 cd ${RUNPATH}
 
@@ -26,4 +26,4 @@ source settings.sh
 
 set -ux
 
-$mpiflags ./run-vracer-swarm ${OPTIONS} -shapes "${OBJECTS}"
+$mpiflags ./run-vracer-prediction ${OPTIONS} -shapes "${OBJECTS}" -nAgents ${NAGENTS}

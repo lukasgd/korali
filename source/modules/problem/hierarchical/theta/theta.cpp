@@ -102,9 +102,9 @@ void Theta::initialize()
 
 void Theta::evaluateLogLikelihood(Sample &sample)
 {
-  double logLikelihood = 0.0;
-
   dynamic_cast<problem::Bayesian *>(_subExperimentObject._problem)->evaluateLoglikelihood(sample);
+
+  double logLikelihood = sample["logLikelihood"].get<double>();
 
   std::vector<double> psiSample;
   psiSample.resize(_psiVariableCount);
@@ -126,7 +126,7 @@ void Theta::evaluateLogLikelihood(Sample &sample)
     logValues[i] = logConditionalPrior - _precomputedLogDenominator[i];
   }
 
-  sample["logLikelihood"] = -log(_psiProblemSampleCount) + logSumExp(logValues);
+  sample["logLikelihood"] = logLikelihood - log(_psiProblemSampleCount) + logSumExp(logValues);
 }
 
 void Theta::setConfiguration(knlohmann::json& js) 
@@ -149,15 +149,6 @@ void Theta::setConfiguration(knlohmann::json& js)
  }
   else   KORALI_LOG_ERROR(" + No value provided for mandatory setting: ['Psi Experiment'] required by theta.\n"); 
 
- if (isDefined(js, "Sub Experiment Model"))
- {
- try { _subExperimentModel = js["Sub Experiment Model"].get<std::uint64_t>();
-} catch (const std::exception& e)
- { KORALI_LOG_ERROR(" + Object: [ theta ] \n + Key:    ['Sub Experiment Model']\n%s", e.what()); } 
-   eraseValue(js, "Sub Experiment Model");
- }
-  else   KORALI_LOG_ERROR(" + No value provided for mandatory setting: ['Sub Experiment Model'] required by theta.\n"); 
-
  Hierarchical::setConfiguration(js);
  _type = "hierarchical/theta";
  if(isDefined(js, "Type")) eraseValue(js, "Type");
@@ -170,7 +161,6 @@ void Theta::getConfiguration(knlohmann::json& js)
  js["Type"] = _type;
    js["Sub Experiment"] = _subExperiment;
    js["Psi Experiment"] = _psiExperiment;
-   js["Sub Experiment Model"] = _subExperimentModel;
  Hierarchical::getConfiguration(js);
 } 
 

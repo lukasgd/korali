@@ -2,8 +2,6 @@
 #include "_model/transportEnvironment.hpp"
 #include "korali.hpp"
 
-std::string _resultsPath;
-
 int main(int argc, char *argv[])
 {
   // Gathering actual arguments from MPI
@@ -22,25 +20,23 @@ int main(int argc, char *argv[])
   // Defining constants
   const double maxForce = 1e-2;
   const size_t numVariables = 8; // Discretization of path
- 
-  // Init CUP2D
-  _environment = new Simulation(_argc, _argv);
-  _environment->init();
 
+  // Setting results path
   std::string resultsPath = "_results_transport_mocmaes/";
 
   // Creating Experiment
   auto e = korali::Experiment();
 
+  // Check if existing results are there and continuing them
   auto found = e.loadState(resultsPath + std::string("latest"));
   if (found == true) printf("[Korali] Continuing execution from previous run...\n");
 
+  // Configuring Experiment
   e["Random Seed"] = 0xC0FEE;
   e["Problem"]["Type"] = "Optimization";
   e["Problem"]["Objective Function"] = &runEnvironmentMocmaes;
   e["Problem"]["Num Objectives"] = 2;
   
- 
   // Configuring MO-CMA-ES parameters
   e["Solver"]["Type"] = "Optimizer/MOCMAES";
   e["Solver"]["Population Size"] = 32;
@@ -59,14 +55,12 @@ int main(int argc, char *argv[])
   }
 
   ////// Setting Korali output configuration
-
   e["Console Output"]["Verbosity"] = "Detailed";
   e["File Output"]["Enabled"] = true;
   e["File Output"]["Frequency"] = 1;
   e["File Output"]["Path"] = resultsPath;
 
   ////// Running Experiment
-
   auto k = korali::Engine();
 
   k["Conduit"]["Type"] = "Distributed";

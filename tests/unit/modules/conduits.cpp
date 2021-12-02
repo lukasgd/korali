@@ -117,12 +117,6 @@ namespace
   // Testing correct configuration value type
   conduitJs["Ranks Per Worker"] = 16;
   ASSERT_NO_THROW(conduit->setConfiguration(conduitJs));
-
-  conduit->_ranksPerWorker = 4;
-  conduit->_rankCount = 5;
-  ASSERT_NO_THROW(conduit->checkRankCount());
-  conduit->_rankCount = 4;
-  ASSERT_ANY_THROW(conduit->checkRankCount());
  }
 
 } // namespace

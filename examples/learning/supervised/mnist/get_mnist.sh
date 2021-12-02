@@ -9,4 +9,4 @@ wget https://storage.googleapis.com/cvdf-datasets/mnist/t10k-labels-idx1-ubyte.g
 
 popd
 
-python3 -m pip install python-mnist
+python3 -m pip install python-mnist --user

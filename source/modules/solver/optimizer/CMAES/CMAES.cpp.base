@@ -8,9 +8,6 @@
 #include <numeric> // std::iota
 #include <stdio.h>
 #include <unistd.h>
-//#include <gsl/gsl_vector.h>
-//#include <gsl/gsl_matrix.h>
-//#include <gsl/gsl_blas.h>
 
 __startNamespace__;
 
@@ -26,12 +23,12 @@ void __className__::setInitialConfiguration()
   _previousBestValue = _bestEverValue;
   _currentBestValue = _bestEverValue;
 
-  if (_populationSize == 0) _populationSize = ceil(4.0 + floor(3 * log((double)_variableCount)));
+  if (_populationSize == 1) KORALI_LOG_ERROR("'Population Size' must be larger 1.");
   if (_muValue == 0) _muValue = _populationSize / 2;
   if (_viabilityMuValue == 0) _viabilityMuValue = _viabilityPopulationSize / 2;
 
-  size_t s_max = std::max(_populationSize, _viabilityPopulationSize);
-  size_t mu_max = std::max(_muValue, _viabilityMuValue);
+  const size_t s_max = std::max(_populationSize, _viabilityPopulationSize);
+  const size_t mu_max = std::max(_muValue, _viabilityMuValue);
 
   _chiSquareNumber = sqrt((double)_variableCount) * (1. - 1. / (4. * _variableCount) + 1. / (21. * _variableCount * _variableCount));
   _chiSquareNumberDiscreteMutations = sqrt((double)_variableCount) * (1. - 1. / (4. * _variableCount) + 1. / (21. * _variableCount * _variableCount));
@@ -115,8 +112,8 @@ void __className__::setInitialConfiguration()
   {
     if (std::isfinite(_k->_variables[i]->_initialValue) == false)
     {
-      if (std::isfinite(_k->_variables[i]->_lowerBound) == false) KORALI_LOG_ERROR("Initial (Mean) Value of variable \'%s\' not defined, and cannot be inferred because variable lower bound is not finite.\n", _k->_variables[i]->_name.c_str());
-      if (std::isfinite(_k->_variables[i]->_upperBound) == false) KORALI_LOG_ERROR("Initial (Mean) Value of variable \'%s\' not defined, and cannot be inferred because variable upper bound is not finite.\n", _k->_variables[i]->_name.c_str());
+      if (std::isfinite(_k->_variables[i]->_lowerBound) == false) KORALI_LOG_ERROR("'Initial Value' of variable \'%s\' not defined, and cannot be inferred because variable lower bound is not finite.\n", _k->_variables[i]->_name.c_str());
+      if (std::isfinite(_k->_variables[i]->_upperBound) == false) KORALI_LOG_ERROR("'Initial Value' of variable \'%s\' not defined, and cannot be inferred because variable upper bound is not finite.\n", _k->_variables[i]->_name.c_str());
       _k->_variables[i]->_initialValue = (_k->_variables[i]->_upperBound + _k->_variables[i]->_lowerBound) * 0.5;
     }
 
@@ -331,7 +328,7 @@ void __className__::checkMeanAndSetRegime()
   KORALI_WAIT(sample);
   _constraintEvaluationCount++;
 
-  auto cEvals = KORALI_GET(std::vector<double>, sample, "Constraint Evaluations");
+  const auto cEvals = KORALI_GET(std::vector<double>, sample, "Constraint Evaluations");
 
   for (size_t c = 0; c < _constraintEvaluations.size(); c++)
     if (cEvals[c] > 0.0) return; /* mean violates constraint, do nothing */
@@ -365,7 +362,7 @@ void __className__::updateConstraints()
     KORALI_WAIT(sample);
     _constraintEvaluationCount++;
 
-    auto cEvals = KORALI_GET(std::vector<double>, sample, "Constraint Evaluations");
+    const auto cEvals = KORALI_GET(std::vector<double>, sample, "Constraint Evaluations");
 
     for (size_t c = 0; c < _constraintEvaluations.size(); c++)
       _constraintEvaluations[c][i] = cEvals[c];
@@ -408,7 +405,7 @@ void __className__::reEvaluateConstraints()
 
       _sampleConstraintViolationCounts[i] = 0;
 
-      auto cEvals = KORALI_GET(std::vector<double>, sample, "Constraint Evaluations");
+      const auto cEvals = KORALI_GET(std::vector<double>, sample, "Constraint Evaluations");
 
       for (size_t c = 0; c < _constraintEvaluations.size(); c++)
       {
@@ -484,9 +481,11 @@ void __className__::prepareGeneration()
           discretize(_samplePopulation[i + 1]);
         }
 
-        isFeasible = isSampleFeasible(_samplePopulation[i]) && isSampleFeasible(_samplePopulation[i + 1]);
-
-        if (isFeasible == false) _infeasibleSampleCount++;
+        bool isFeasibleOne = isSampleFeasible(_samplePopulation[i]);
+        if (isFeasibleOne == false) _infeasibleSampleCount++;
+        bool isFeasibleTwo = isSampleFeasible(_samplePopulation[i + 1]);
+        if (isFeasibleTwo == false) _infeasibleSampleCount++;
+        isFeasible = (isFeasibleOne || isFeasibleTwo);
 
       } while (isFeasible == false && (_infeasibleSampleCount < _maxInfeasibleResamplings));
     }
@@ -517,7 +516,7 @@ void __className__::sampleSingle(size_t sampleIdx, const std::vector<double> &ra
   {
     if ((sampleIdx + 1) < _numberOfDiscreteMutations)
     {
-      double p_geom = std::pow(0.7, 1.0 / _numberMaskingMatrixEntries);
+      const double p_geom = std::pow(0.7, 1.0 / _numberMaskingMatrixEntries);
       size_t select = std::floor(_uniformGenerator->getRandomNumber() * _numberMaskingMatrixEntries);
 
       for (size_t d = 0; d < _variableCount; ++d)
@@ -537,7 +536,7 @@ void __className__::sampleSingle(size_t sampleIdx, const std::vector<double> &ra
       for (size_t d = 0; d < _variableCount; ++d)
         if (_k->_variables[d]->_granularity != 0.0)
         {
-          double dmutation = std::round(_bestEverVariables[d] / _k->_variables[d]->_granularity) * _k->_variables[d]->_granularity - _samplePopulation[sampleIdx][d];
+          const double dmutation = std::round(_bestEverVariables[d] / _k->_variables[d]->_granularity) * _k->_variables[d]->_granularity - _samplePopulation[sampleIdx][d];
           _discreteMutations[sampleIdx * _variableCount + d] = dmutation;
           _samplePopulation[sampleIdx][d] += dmutation;
         }
@@ -656,7 +655,7 @@ void __className__::updateDistribution()
   /* calculate norm(ps) */
   _conjugateEvolutionPathL2Norm = std::sqrt(_conjugateEvolutionPathL2Norm);
 
-  int hsig = (1.4 + 2.0 / (_variableCount + 1) > _conjugateEvolutionPathL2Norm / std::sqrt(1. - std::pow(1. - _sigmaCumulationFactor, 2.0 * (1.0 + _k->_currentGeneration))) / _chiSquareNumber);
+  const int hsig = (1.4 + 2.0 / (_variableCount + 1) > _conjugateEvolutionPathL2Norm / std::sqrt(1. - std::pow(1. - _sigmaCumulationFactor, 2.0 * (1.0 + _k->_currentGeneration))) / _chiSquareNumber);
 
   /* cumulation for covariance matrix (pc) using B*D*z~_variableCount(0,C) */
   for (size_t d = 0; d < _variableCount; ++d)
@@ -691,9 +690,9 @@ void __className__::updateDistribution()
 void __className__::adaptC(int hsig)
 {
   /* definitions for speeding up inner-most loop */
-  double ccov1 = 2.0 / (std::pow(_variableCount + 1.3, 2) + _effectiveMu);
-  double ccovmu = std::min(1.0 - ccov1, 2.0 * (_effectiveMu - 2. + 1. / _effectiveMu) / (std::pow(_variableCount + 2.0, 2) + _effectiveMu));
-  double sigmasquare = _sigma * _sigma;
+  const double ccov1 = 2.0 / (std::pow(_variableCount + 1.3, 2) + _effectiveMu);
+  const double ccovmu = std::min(1.0 - ccov1, 2.0 * (_effectiveMu - 2. + 1. / _effectiveMu) / (std::pow(_variableCount + 2.0, 2) + _effectiveMu));
+  const double sigmasquare = _sigma * _sigma;
 
   /* update covariance matrix */
   for (size_t d = 0; d < _variableCount; ++d)
@@ -741,14 +740,14 @@ void __className__::updateSigma()
   }
 
   /* escape flat evaluation */
-  if (_currentBestValue == _valueVector[_sortingIndex[_currentMuValue - 1]])
+  if (_muValue > 1 && _currentBestValue == _valueVector[_sortingIndex[_currentMuValue - 1]])
   {
     _sigma *= exp(0.2 + _sigmaCumulationFactor / _dampFactor);
     _k->_logger->logWarning("Detailed", "Sigma increased due to equal function values.\n");
   }
 
   /* upper bound check for _sigma */
-  double _upperBound = sqrt(_trace / _variableCount);
+  const double _upperBound = sqrt(_trace / _variableCount);
 
   if (_sigma > _upperBound)
   {
@@ -768,11 +767,11 @@ void __className__::numericalErrorTreatment()
 
   // treat minimal standard deviations
   for (size_t d = 0; d < _variableCount; ++d)
-    if (_sigma * sqrt(_covarianceMatrix[d * _variableCount + d]) < _k->_variables[d]->_minimumStandardDeviationUpdate)
-    {
-      _sigma = (_k->_variables[d]->_minimumStandardDeviationUpdate) / sqrt(_covarianceMatrix[d * _variableCount + d]) * exp(0.05 + _sigmaCumulationFactor / _dampFactor);
-      _k->_logger->logWarning("Detailed", "Sigma increased due to minimal standard deviation.\n");
-    }
+  if (_sigma * sqrt(_covarianceMatrix[d * _variableCount + d]) < _k->_variables[d]->_minimumStandardDeviationUpdate)
+  {
+    _sigma = (_k->_variables[d]->_minimumStandardDeviationUpdate) / sqrt(_covarianceMatrix[d * _variableCount + d]) * exp(0.05 + _sigmaCumulationFactor / _dampFactor);
+    _k->_logger->logWarning("Detailed", "Sigma increased due to minimal standard deviation.\n");
+  }
 
   // too low coordinate axis deviations
   // TODO
@@ -884,8 +883,8 @@ void __className__::updateEigensystem(const std::vector<double> &M)
   eigen(_variableCount, M, _auxiliarAxisLengths, _auxiliarCovarianceEigenvectorMatrix);
 
   /* find largest and smallest eigenvalue, they are supposed to be sorted anyway */
-  double minCovEV = *std::min_element(std::begin(_auxiliarAxisLengths), std::end(_auxiliarAxisLengths));
-  double maxCovEV = *std::max_element(std::begin(_auxiliarAxisLengths), std::end(_auxiliarAxisLengths));
+  const double minCovEV = *std::min_element(std::begin(_auxiliarAxisLengths), std::end(_auxiliarAxisLengths));
+  const double maxCovEV = *std::max_element(std::begin(_auxiliarAxisLengths), std::end(_auxiliarAxisLengths));
   if (minCovEV <= 0.0)
   {
     _k->_logger->logWarning("Detailed", "Min Eigenvalue smaller or equal 0.0 (%+6.3e) after Eigen decomp (no update possible).\n", _minimumCovarianceEigenvalue);
