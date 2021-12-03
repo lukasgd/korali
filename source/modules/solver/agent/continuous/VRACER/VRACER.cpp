@@ -84,6 +84,7 @@ void VRACER::trainPolicy()
   const auto stateSequence = getMiniBatchStateSequence(miniBatch);
 
   /* Forward Policy, compute Gradient, and perform Backpropagation */
+
   // Update using a large minibatch
   if( _multiPolicyUpdate == "Together" )
   {
@@ -105,7 +106,7 @@ void VRACER::trainPolicy()
     // Now applying gradients to update policy NN
     _criticPolicyLearner[0]->runGeneration();
   }
-  else
+  else // Update agent by agent using fixed minibatch-size
   {
     for (size_t p = 0; p < _problem->_policiesPerEnvironment; p++)
     for (size_t a = 0; a < _problem->_agentsPerEnvironment; a++)
@@ -295,7 +296,6 @@ void VRACER::calculatePolicyGradients(const std::vector<std::pair<size_t,size_t>
     _miniBatchPolicyMean[i]   /= miniBatchSize;
     _miniBatchPolicyStdDev[i] /= miniBatchSize;
   }
-
 }
 
 void VRACER::runPolicy(const std::vector<std::vector<std::vector<float>>> &stateBatch, std::vector<policy_t> &policyInfo, const size_t policyIdx)
