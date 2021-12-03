@@ -620,6 +620,46 @@ class Agent : public Solver
    */
   double _generationAgentAttendingTime;
 
+  /**
+   * @brief [Profiling] Measures the time taken to obtain a minibatch
+   */
+  double _generationMiniBatchGenerationTime;
+
+  /**
+   * @brief [Profiling] Measures the time taken to obtain stateSequence
+   */
+  double _generationStateSequenceTime;
+
+  /**
+   * @brief [Profiling] Measures the time taken to run policy
+   */
+  double _generationRunPolicyTime;
+
+  /**
+   * @brief [Profiling] Measures the time taken to update Metadata
+   */
+  double _generationUpdateExperienceMetadataTime;
+
+  /**
+   * @brief [Profiling] Measures the time taken to calculate Policy gradients
+   */
+  double _generationCalculatePolicyGradientsTime;
+
+  /**
+   * @brief [Profiling] Measures the time taken to run generation
+   */
+  double _generationRunGenerationTime;
+
+
+  /**
+   * @brief [Profiling] Measures the time taken to update Metadata
+   */
+  double _generationUpdateSegment1;
+  double _generationUpdateSegment2;
+  double _generationUpdateSegment3;
+  double _generationUpdateSegment4;
+  double _generationUpdateSegment5;
+
   /****************************************************************************************************
    * Common Agent functions
    ***************************************************************************************************/

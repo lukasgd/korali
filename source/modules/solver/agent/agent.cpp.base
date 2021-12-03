@@ -135,6 +135,20 @@ void __className__::initialize()
   _sessionPolicyUpdateTime = 0.0;
   _sessionAgentAttendingTime = 0.0;
 
+  _generationMiniBatchGenerationTime = 0.0;
+  _generationStateSequenceTime = 0.0;
+  _generationRunPolicyTime = 0.0;
+  _generationUpdateExperienceMetadataTime = 0.0;
+  _generationCalculatePolicyGradientsTime = 0.0;
+  _generationRunGenerationTime = 0.0;
+
+
+  _generationUpdateSegment1 = 0.0;
+  _generationUpdateSegment2 = 0.0;
+  _generationUpdateSegment3 = 0.0;
+  _generationUpdateSegment4 = 0.0;
+  _generationUpdateSegment5 = 0.0;
+
   // Initializing session-specific counters
   _sessionExperienceCount = 0;
   _sessionEpisodeCount = 0;
@@ -198,6 +212,20 @@ void __className__::trainingGeneration()
   _generationAgentPolicyEvaluationTime = 0.0;
   _generationPolicyUpdateTime = 0.0;
   _generationAgentAttendingTime = 0.0;
+
+  _generationMiniBatchGenerationTime = 0.0;
+  _generationStateSequenceTime = 0.0;
+  _generationRunPolicyTime = 0.0;
+  _generationUpdateExperienceMetadataTime = 0.0;
+  _generationCalculatePolicyGradientsTime = 0.0;
+  _generationRunGenerationTime = 0.0;
+
+
+  _generationUpdateSegment1 = 0.0;
+  _generationUpdateSegment2 = 0.0;
+  _generationUpdateSegment3 = 0.0;
+  _generationUpdateSegment4 = 0.0;
+  _generationUpdateSegment5 = 0.0;
 
   // Running until all _agents have finished
   while (_sessionEpisodeCount < _episodesPerGeneration * _sessionGeneration)
@@ -773,6 +801,8 @@ void __className__::updateExperienceMetadata( const std::vector<std::pair<size_t
   /* Sorting minibatch while keeping track of indices -- this helps to quickly detect duplicates when updating metadata */
 
   // create vector of pairs with index and expId
+
+  auto startZeit = std::chrono::steady_clock::now();
   std::vector<std::pair<size_t,size_t>> sortHelper(miniBatch.size());
   for( size_t b = 0; b<miniBatch.size(); b++ )
   {
@@ -789,6 +819,11 @@ void __className__::updateExperienceMetadata( const std::vector<std::pair<size_t
   for (size_t b = 1; b < miniBatch.size(); b++)
     if (miniBatch[sortHelper[b].second] != miniBatch[sortHelper[b-1].second]) updateBatch.push_back(sortHelper[b].second);
 
+  auto endZeit = std::chrono::steady_clock::now();
+  _generationUpdateSegment1 += std::chrono::duration_cast<std::chrono::nanoseconds>(endZeit - startZeit).count();
+
+
+  startZeit = std::chrono::steady_clock::now();
 
   std::vector<int> deltaOffPolicyCount(_problem->_agentsPerEnvironment, 0);
   #pragma omp parallel for reduction(vec_int_plus : deltaOffPolicyCount)
@@ -911,6 +946,10 @@ void __className__::updateExperienceMetadata( const std::vector<std::pair<size_t
     _curPolicyVector[expId][agentId] = curPolicy;
   }
 
+  endZeit = std::chrono::steady_clock::now();
+  _generationUpdateSegment2 += std::chrono::duration_cast<std::chrono::nanoseconds>(endZeit - startZeit).count();
+
+  startZeit = std::chrono::steady_clock::now();
   // Update Off-Policy count and ratio
   for( size_t a = 0; a<_problem->_agentsPerEnvironment; a++ )
   {
@@ -938,7 +977,10 @@ void __className__::updateExperienceMetadata( const std::vector<std::pair<size_t
       retraceMiniBatchId.push_back(i);
     }
   }
+  endZeit = std::chrono::steady_clock::now();
+  _generationUpdateSegment3 += std::chrono::duration_cast<std::chrono::nanoseconds>(endZeit - startZeit).count();
 
+  startZeit = std::chrono::steady_clock::now();
   // Calculating retrace value for the oldest experiences of unique episodes
   #pragma omp parallel for schedule(guided, 1)
   for (size_t i = 0; i < retraceMiniBatch.size(); i++)
@@ -994,6 +1036,8 @@ void __className__::updateExperienceMetadata( const std::vector<std::pair<size_t
       retV = curV[agentId] + truncatedImportanceWeights[agentId] * (curReward + _discountFactor * retV - curV[agentId]);
     }
   }
+  endZeit = std::chrono::steady_clock::now();
+  _generationUpdateSegment4 += std::chrono::duration_cast<std::chrono::nanoseconds>(endZeit - startZeit).count();
 }
 
 size_t __className__::getTimeSequenceStartExpId(size_t expId)
@@ -1291,6 +1335,16 @@ void __className__::printGenerationAfter()
     _k->_logger->logInfo("Detailed", " + Avg Agent Policy Evaluation Time:    [%5.3fs] - [%3.3fs]\n", _generationAgentPolicyEvaluationTime / 1.0e+9, _sessionAgentPolicyEvaluationTime / 1.0e+9);
     _k->_logger->logInfo("Detailed", " + Policy Update Time:                  [%5.3fs] - [%3.3fs]\n", _generationPolicyUpdateTime / 1.0e+9, _sessionPolicyUpdateTime / 1.0e+9);
     _k->_logger->logInfo("Detailed", " + Running Time:                        [%5.3fs] - [%3.3fs]\n", _generationRunningTime / 1.0e+9, _sessionRunningTime / 1.0e+9);
+    _k->_logger->logInfo("Detailed", " + MiniBatch Generation Time:           [%5.3fs] \n", _generationMiniBatchGenerationTime / 1.0e+9);
+    _k->_logger->logInfo("Detailed", " + stateSequence Time:                  [%5.3fs] \n", _generationStateSequenceTime / 1.0e+9);
+    _k->_logger->logInfo("Detailed", " + runPolicy Time:                      [%5.3fs] \n", _generationRunPolicyTime / 1.0e+9);
+    _k->_logger->logInfo("Detailed", " + update Exp. Metadeta Time:           [%5.3fs] \n", _generationUpdateExperienceMetadataTime/ 1.0e+9);
+    _k->_logger->logInfo("Detailed", " + Policy Gradient Time:                [%5.3fs] \n", _generationCalculatePolicyGradientsTime / 1.0e+9);
+    _k->_logger->logInfo("Detailed", " + run Generation Time:                 [%5.3fs] \n", _generationRunGenerationTime/ 1.0e+9);
+    _k->_logger->logInfo("Detailed", " + Segment 1 Time:                      [%5.3fs] \n", _generationUpdateSegment1 / 1.0e+9);
+    _k->_logger->logInfo("Detailed", " + Segment 2 Time:                      [%5.3fs] \n", _generationUpdateSegment2 / 1.0e+9);
+    _k->_logger->logInfo("Detailed", " + Segment 3 Time:                      [%5.3fs] \n", _generationUpdateSegment3 / 1.0e+9);
+    _k->_logger->logInfo("Detailed", " + Segment 4 Time:                      [%5.3fs] \n", _generationUpdateSegment4 / 1.0e+9);
     _k->_logger->logInfo("Detailed", " + [I/O] Result File Saving Time:        %5.3fs\n", _k->_resultSavingTime / 1.0e+9);
   }
 
