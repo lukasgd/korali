@@ -1,6 +1,6 @@
 #!/bin/bash -l
 
-if [ $# -lt 2 ] ; then
+if [ $# -lt 1 ] ; then
 echo "Usage: ./submit_greasy.sh RUNNAME"
 exit 1
 fi

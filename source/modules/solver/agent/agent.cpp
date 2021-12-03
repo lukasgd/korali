@@ -571,6 +571,7 @@ void Agent::processEpisode(size_t episodeId, knlohmann::json &episode)
 
     if (isDefined(episode["Experiences"][expId], "Policy", "Action Probabilities"))
     {
+
       const auto actProb = episode["Experiences"][expId]["Policy"]["Action Probabilities"].get<std::vector<std::vector<float>>>();
       for (size_t d = 0; d < _problem->_agentsPerEnvironment; d++)
         expPolicy[d].actionProbabilities = actProb[d];
@@ -582,7 +583,8 @@ void Agent::processEpisode(size_t episodeId, knlohmann::json &episode)
       for (size_t d = 0; d < _problem->_agentsPerEnvironment; d++)
       {
         expPolicy[d].availableActions = availAct[d];
-        if (std::accumulate(expPolicy[d].availableActions.begin(), expPolicy[d].availableActions.end(), 0) == 0)
+        if (expPolicy[d].availableActions.size() > 0)
+          if (std::accumulate(expPolicy[d].availableActions.begin(), expPolicy[d].availableActions.end(), 0) == 0)
             KORALI_LOG_ERROR("State with experience id %zu for agent %zu detected with no available actions.", expId, d);
       }
     }
