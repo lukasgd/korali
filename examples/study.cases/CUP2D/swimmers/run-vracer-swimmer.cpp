@@ -147,7 +147,7 @@ int main(int argc, char *argv[])
   e["Solver"]["Termination Criteria"]["Max Experiences"] = nAgents*5e5;
 
   ////// Setting Korali output configuration
-  e["Console Output"]["Verbosity"] = "Normal";
+  e["Console Output"]["Verbosity"] = "Detailed";
   e["File Output"]["Enabled"] = true;
   e["File Output"]["Frequency"] = 1;
   e["File Output"]["Use Multiple Files"] = false;
