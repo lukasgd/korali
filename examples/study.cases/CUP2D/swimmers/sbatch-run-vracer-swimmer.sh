@@ -9,11 +9,11 @@ if [ $# -gt 0 ] ; then
 fi
 
 # number of workers
-NWORKER=64
+NWORKER=1
 # NWORKER=1
 
 # number of nodes per worker
-NRANKS=1
+NRANKS=9
 # NRANKS=9
 
 # number of cores per worker
@@ -38,10 +38,10 @@ cat <<EOF >daint_sbatch
 #SBATCH --job-name="${RUNNAME}"
 #SBATCH --output=${RUNNAME}_out_%j.txt
 #SBATCH --error=${RUNNAME}_err_%j.txt
-#SBATCH --time=24:00:00
-#SBATCH --partition=normal
-# #SBATCH --time=00:30:00
-# #SBATCH --partition=debug
+# #SBATCH --time=24:00:00
+# #SBATCH --partition=normal
+#SBATCH --time=00:30:00
+#SBATCH --partition=debug
 #SBATCH --nodes=$((NNODES+1))
 
 srun --nodes=$NNODES --ntasks-per-node=$NUMCORES --cpus-per-task=1 --threads-per-core=1 ./run-vracer-swimmer ${OPTIONS} -shapes "${OBJECTS}" -nAgents $NAGENTS -nRanks $(( $NRANKS * $NUMCORES )) : --nodes=1 --ntasks-per-node=1 --cpus-per-task=$NUMCORES --threads-per-core=1 ./run-vracer-swimmer ${OPTIONS} -shapes "${OBJECTS}" -nAgents $NAGENTS -nRanks $(( $NRANKS * $NUMCORES ))

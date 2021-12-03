@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
   e["Solver"]["Mini Batch"]["Size"] =  128;
 
   /// Defining the configuration of replay memory
-  e["Solver"]["Experience Replay"]["Start Size"] = 16;
+  e["Solver"]["Experience Replay"]["Start Size"] = 8;
   e["Solver"]["Experience Replay"]["Maximum Size"] = 65536;
   e["Solver"]["Experience Replay"]["Off Policy"]["Annealing Rate"] = 5.0e-8;
   e["Solver"]["Experience Replay"]["Off Policy"]["Cutoff Scale"] = 5.0;
@@ -117,8 +117,12 @@ int main(int argc, char *argv[])
   //// Setting Multi-Agent Specific Settings
   e["Solver"]["Multi Agent Relationship"] = "Individual";
   e["Solver"]["Multi Agent Correlation"] = false;
-  e["Solver"]["Multi Agent Sampling"] = "Tuples";
-  e["Solver"]["Multi Policy Update"] = "Together";
+  // Old SOTA
+  e["Solver"]["Multi Agent Sampling"] = "Experiences";
+  e["Solver"]["Multi Policy Update"] = "Off";
+  // New SOTA
+  // e["Solver"]["Multi Agent Sampling"] = "Tuples";
+  // e["Solver"]["Multi Policy Update"] = "Together";
 
   //// Defining Neural Network
   e["Solver"]["Neural Network"]["Engine"] = "OneDNN";
