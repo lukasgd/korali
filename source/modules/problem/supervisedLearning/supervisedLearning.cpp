@@ -13,6 +13,10 @@ void SupervisedLearning::initialize()
   if (_maxTimesteps == 0) KORALI_LOG_ERROR("Incorrect max timesteps provided: %lu.\n", _maxTimesteps);
   if (_inputSize == 0) KORALI_LOG_ERROR("Empty input vector size provided.\n");
   if (_solutionSize == 0) KORALI_LOG_ERROR("Empty solution vector size provided.\n");
+
+  // Preallocating training batch inputs
+  _inputData.resize(_trainingBatchSize);
+  _solutionData.resize(_trainingBatchSize);
 }
 
 void SupervisedLearning::verifyData()
