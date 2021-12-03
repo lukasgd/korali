@@ -72,7 +72,7 @@ if(args.masampling == 1):
 	e["Solver"]["Multi Agent Sampling"] = "Agents"
 
 if(args.model == '-1') or (args.masampling == 2):
-	e["Solver"]["Multi Agent Sampling"] = "Experience"
+	e["Solver"]["Multi Agent Sampling"] = "Experiences"
 	if( args.multpolicies == 1 ):
 		sys.exit("Single sampling is not compatible with multiple policies")
 
@@ -136,7 +136,7 @@ e["Solver"]["Termination Criteria"]["Max Experiences"] = 10e6
 e["Solver"]["Experience Replay"]["Serialize"] = True
 e["Console Output"]["Verbosity"] = "Detailed"
 e["File Output"]["Enabled"] = True
-e["File Output"]["Frequency"] = 5
+e["File Output"]["Frequency"] = 150
 #e["File Output"]["Frequency"] = 2
 e["File Output"]["Path"] = resultFolder
 
@@ -147,3 +147,4 @@ k.run(e)
 file = open(resultFolder + 'args.txt',"w")
 file.write(str(args))
 file.close()
+

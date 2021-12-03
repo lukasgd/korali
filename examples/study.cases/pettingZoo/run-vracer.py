@@ -52,11 +52,11 @@ initEnvironment(e, args.env, args.multpolicies)
 
 e["Solver"]["Type"] = "Agent / Continuous / VRACER"
 e["Solver"]["Mode"] = "Training"
-e["Solver"]["Episodes Per Generation"] = 1
+e["Solver"]["Episodes Per Generation"] = 10
 e["Solver"]["Experiences Between Policy Updates"] = 1
 e["Solver"]["Learning Rate"] = args.lr
 e["Solver"]["Discount Factor"] = 0.995
-e["Solver"]["Mini Batch"]["Size"] = 1
+e["Solver"]["Mini Batch"]["Size"] = 256
 e["Solver"]["Multi Agent Relationship"] = 'Individual'
 e["Solver"]["Multi Agent Correlation"] = False
 e["Solver"]["Multi Agent Sampling"] = "Tuples"
@@ -76,7 +76,7 @@ if(args.masampling == 1):
 
 
 if(args.model == '-1') or (args.masampling == 2):
-	e["Solver"]["Multi Agent Sampling"] = "Experience"
+	e["Solver"]["Multi Agent Sampling"] = "Experiences"
 
 if(args.model == '1'):
 	e["Solver"]["Multi Agent Correlation"] = True
@@ -102,9 +102,9 @@ else:
 	sys.exit()
 
 e["Solver"]["Experience Replay"]["Start Size"] = 131072
-#e["Solver"]["Experience Replay"]["Start Size"] = 500
+#e["Solver"]["Experience Replay"]["Start Size"] = 5000
 e["Solver"]["Experience Replay"]["Maximum Size"] = 262144
-#e["Solver"]["Experience Replay"]["Maximum Size"] = 2000
+#e["Solver"]["Experience Replay"]["Maximum Size"] = 20000
 e["Solver"]["Experience Replay"]["Off Policy"]["Annealing Rate"] = 5.0e-8
 e["Solver"]["Experience Replay"]["Off Policy"]["Cutoff Scale"] = 4.0
 e["Solver"]["Experience Replay"]["Off Policy"]["REFER Beta"] = 0.3

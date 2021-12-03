@@ -78,7 +78,7 @@ void VRACER::initializeAgent()
 void VRACER::trainPolicy()
 {
   // Obtaining minibatch of experiences
-  auto miniBatch = generateMiniBatch();
+  const auto miniBatch = generateMiniBatch();
 
   // Gathering state sequences for selected minibatch
   const auto stateSequence = getMiniBatchStateSequence(miniBatch);
@@ -122,7 +122,7 @@ void VRACER::trainPolicy()
       std::vector<policy_t> policyInfo;
 
       // Extract minibatch of experiences for agent a
-      std::vector<std::pair<size_t,size_t>> miniBatchTruncated( miniBatch.begin()+a*_miniBatchSize, miniBatch.begin()+(a+1)*_miniBatchSize );
+      const std::vector<std::pair<size_t,size_t>> miniBatchTruncated( miniBatch.begin()+a*_miniBatchSize, miniBatch.begin()+(a+1)*_miniBatchSize );
       const std::vector<std::vector<std::vector<float>>> stateSequenceTruncated( stateSequence.begin()+a*_miniBatchSize, stateSequence.begin()+(a+1)*_miniBatchSize );
 
       // Forward Mini Batch
@@ -150,7 +150,7 @@ void VRACER::trainPolicy()
         std::vector<policy_t> policyInfo;
 
         // Extract minibatch of experiences for agent p
-        std::vector<std::pair<size_t,size_t>> miniBatchTruncated( miniBatch.begin()+p*_miniBatchSize, miniBatch.begin()+(p+1)*_miniBatchSize );
+        const std::vector<std::pair<size_t,size_t>> miniBatchTruncated( miniBatch.begin()+p*_miniBatchSize, miniBatch.begin()+(p+1)*_miniBatchSize );
         const std::vector<std::vector<std::vector<float>>> stateSequenceTruncated( stateSequence.begin()+p*_miniBatchSize, stateSequence.begin()+(p+1)*_miniBatchSize );
 
         // Forward Mini Batch
