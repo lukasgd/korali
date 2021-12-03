@@ -220,7 +220,6 @@ void __className__::trainingGeneration()
   _generationCalculatePolicyGradientsTime = 0.0;
   _generationRunGenerationTime = 0.0;
 
-
   _generationUpdateSegment1 = 0.0;
   _generationUpdateSegment2 = 0.0;
   _generationUpdateSegment3 = 0.0;
@@ -800,8 +799,7 @@ void __className__::updateExperienceMetadata( const std::vector<std::pair<size_t
 {
   /* Sorting minibatch while keeping track of indices -- this helps to quickly detect duplicates when updating metadata */
 
-  // create vector of pairs with index and expId
-
+  // Create vector of pairs with index and expId
   auto startZeit = std::chrono::steady_clock::now();
   std::vector<std::pair<size_t,size_t>> sortHelper(miniBatch.size());
   for( size_t b = 0; b<miniBatch.size(); b++ )
@@ -957,25 +955,32 @@ void __className__::updateExperienceMetadata( const std::vector<std::pair<size_t
     _experienceReplayOffPolicyRatio[a] = (float)_experienceReplayOffPolicyCount[a] / (float)(_stateVector.size());
   }
 
-  // Now filtering experiences from the same episode
+  /* Now filtering experiences from the same episode */
   std::vector<std::pair<size_t,size_t>> retraceMiniBatch;
-  std::vector<size_t> retraceMiniBatchId;
+
+  // Create vector of pairs with index and agentId from sorted exps
+  std::vector<std::pair<size_t,size_t>> retraceSortHelper(updateBatch.size());
+  for( size_t b = 0; b<updateBatch.size(); b++ )
+  {
+    retraceSortHelper[b].first = miniBatch[updateBatch[b]].second;
+    retraceSortHelper[b].second = b;
+  }
+
+  // Stable sort according to agentId (avoids reordering of equal element)
+  std::stable_sort(retraceSortHelper.begin(), retraceSortHelper.end());
 
   // Adding last experience from the sorted minibatch
-  retraceMiniBatch.push_back(miniBatch[miniBatch.size() - 1]);
+  retraceMiniBatch.push_back(miniBatch[updateBatch[retraceSortHelper[updateBatch.size() - 1].second]]);
 
   // Adding experiences so long as they do not repeat episodes
-  for (ssize_t i = miniBatch.size() - 2; i >= 0; i--)
+  for (ssize_t i = updateBatch.size() - 2; i >= 0; i--)
   {
-    size_t currExpId = miniBatch[i].first;
-    size_t nextExpId = miniBatch[i + 1].first;
+    size_t currExpId = miniBatch[updateBatch[retraceSortHelper[i].second]].first;
+    size_t nextExpId = miniBatch[updateBatch[retraceSortHelper[i+1].second]].first;
     size_t curEpisode  = _episodeIdVector[currExpId];
     size_t nextEpisode = _episodeIdVector[nextExpId];
-    if ( (curEpisode != nextEpisode) && (miniBatch[i].second == miniBatch[i + 1].second) )
-    {
-      retraceMiniBatch.push_back(miniBatch[i]);
-      retraceMiniBatchId.push_back(i);
-    }
+    if ( (curEpisode != nextEpisode) ) 
+      retraceMiniBatch.push_back(miniBatch[updateBatch[retraceSortHelper[i].second]]);
   }
   endZeit = std::chrono::steady_clock::now();
   _generationUpdateSegment3 += std::chrono::duration_cast<std::chrono::nanoseconds>(endZeit - startZeit).count();
