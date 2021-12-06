@@ -179,7 +179,7 @@ void VRACER::calculatePolicyGradients(const std::vector<std::pair<size_t,size_t>
   #pragma omp parallel for reduction(vec_float_plus: _miniBatchPolicyMean, _miniBatchPolicyStdDev)
   for (size_t b = 0; b < miniBatchSize; b++)
   {
-    // Getting index of current experiment
+    // Getting index of current experience
     const size_t expId   = miniBatch[b].first;
     const size_t agentId = miniBatch[b].second;
 

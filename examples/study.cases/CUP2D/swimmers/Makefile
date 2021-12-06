@@ -1,5 +1,5 @@
 SWIMMER = run-vracer-swimmer eval-vracer-swimmer
-KORALICXX=${CXX}
+KORALICXX=${MPICXX}
 KORALICFLAGS=`python3 -m korali.cxx --cflags`
 KORALILIBS=`python3 -m korali.cxx --libs`
 CUPFOLDER=../_deps/CUP-2D

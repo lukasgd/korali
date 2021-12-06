@@ -9,13 +9,13 @@ if [ $# -gt 0 ] ; then
 fi
 
 # number of nodes per worker
-NRANKS=9
+NRANKS=1
 
 # number of cores per worker
-NUMCORES=12
+NUMCORES=11
 
 # Set number of nodes here
-mpiflags="mpirun -n 2"
+mpiflags="mpirun -n 12"
 
 if [ ! -z $SLURM_NNODES ]; then
  N=$SLURM_NNODES
