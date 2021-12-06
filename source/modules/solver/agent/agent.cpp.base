@@ -135,6 +135,13 @@ void __className__::initialize()
   _sessionPolicyUpdateTime = 0.0;
   _sessionAgentAttendingTime = 0.0;
 
+  _generationMiniBatchGenerationTime = 0.0;
+  _generationStateSequenceTime = 0.0;
+  _generationRunPolicyTime = 0.0;
+  _generationUpdateExperienceMetadataTime = 0.0;
+  _generationCalculatePolicyGradientsTime = 0.0;
+  _generationRunGenerationTime = 0.0;
+
   // Initializing session-specific counters
   _sessionExperienceCount = 0;
   _sessionEpisodeCount = 0;
@@ -199,6 +206,13 @@ void __className__::trainingGeneration()
   _generationPolicyUpdateTime = 0.0;
   _generationAgentAttendingTime = 0.0;
 
+  _generationMiniBatchGenerationTime = 0.0;
+  _generationStateSequenceTime = 0.0;
+  _generationRunPolicyTime = 0.0;
+  _generationUpdateExperienceMetadataTime = 0.0;
+  _generationCalculatePolicyGradientsTime = 0.0;
+  _generationRunGenerationTime = 0.0;
+
   // Running until all _agents have finished
   while (_sessionEpisodeCount < _episodesPerGeneration * _sessionGeneration)
   {
@@ -238,13 +252,11 @@ void __className__::trainingGeneration()
       // If we accumulated enough experiences between updates in this session, update now
       while (_sessionExperienceCount > (_experiencesBetweenPolicyUpdates * _sessionPolicyUpdateCount + _sessionExperiencesUntilStartSize))
       {
-        auto beginTime = std::chrono::steady_clock::now(); // Profiling
-
         // Calling the algorithm specific policy training algorithm
+        auto beginTime = std::chrono::steady_clock::now(); // Profiling
         trainPolicy();
-
-        auto endTime = std::chrono::steady_clock::now();                                                                  // Profiling
-        _sessionPolicyUpdateTime += std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - beginTime).count();    // Profiling
+        auto endTime = std::chrono::steady_clock::now(); // Profiling
+        _sessionPolicyUpdateTime += std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - beginTime).count(); // Profiling
         _generationPolicyUpdateTime += std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - beginTime).count(); // Profiling
 
         // Increasing policy update counters
@@ -734,7 +746,7 @@ std::vector<std::pair<size_t,size_t>> __className__::generateMiniBatch()
 }
 
 std::vector<std::vector<std::vector<float>>> __className__::getMiniBatchStateSequence(const std::vector<std::pair<size_t,size_t>> &miniBatch)
-{  
+{
   // Getting mini batch size
   const size_t miniBatchSize = miniBatch.size();
 
@@ -776,9 +788,12 @@ std::vector<std::vector<std::vector<float>>> __className__::getMiniBatchStateSeq
 
 void __className__::updateExperienceMetadata( const std::vector<std::pair<size_t,size_t>> &miniBatch, const std::vector<policy_t> &policyData, const size_t policyIdx)
 {
-  /* Sorting minibatch while keeping track of indices -- this helps to quickly detect duplicates when updating metadata */
+  /* Sorting minibatch while keeping track of indices
+   * helps to quickly detect duplicates when updating metadata
+   * makes sure policyData is correctly adressed
+   */
 
-  // create vector of pairs with index and expId
+  // Create vector of pairs with index and expId
   std::vector<std::pair<size_t,size_t>> sortHelper(miniBatch.size());
   for( size_t b = 0; b<miniBatch.size(); b++ )
   {
@@ -786,112 +801,162 @@ void __className__::updateExperienceMetadata( const std::vector<std::pair<size_t
     sortHelper[b].second = b;
   }
 
-  // Stable sort according to expId (avoids reordering of equal element)
+  // Stable sort according to expId (avoids reordering of equal first index)
   std::stable_sort(sortHelper.begin(), sortHelper.end());
 
+  // Container for unique experiences
+  std::vector<std::pair<size_t,std::vector<size_t>>> updateBatch;
+
+  // Variables to keep track of expId
+  size_t expId, curExpId;
+  expId = curExpId = miniBatch[sortHelper[0].second].first;
+
+  // Container for agentIds
+  std::vector<size_t> agentIds{miniBatch[sortHelper[0].second].second};
+
+  // Container for reference to policyData
+  std::vector<size_t> policyIndices{sortHelper[0].second};
+
   // Creating a selection of unique experiences from the mini batch
-  std::vector<size_t> updateBatch;
-  updateBatch.push_back(sortHelper[0].second);
-  for (size_t b = 1; b < miniBatch.size(); b++)
-    if (miniBatch[sortHelper[b].second] != miniBatch[sortHelper[b-1].second]) updateBatch.push_back(sortHelper[b].second);
+  for( size_t b = 1; b < miniBatch.size(); b++ )
+  {
+    // Get index that sorts this element
+    size_t sortingIndex = sortHelper[b].second;
 
+    // Skip if we have two times the same tuple in the minibatch
+    if( miniBatch[sortingIndex] == miniBatch[sortHelper[b - 1].second] )
+      continue;
 
+    // Append Index
+    policyIndices.push_back(sortingIndex);
+
+    // Read next expId
+    curExpId = miniBatch[sortingIndex].first;
+
+    if( curExpId != expId )
+    {
+      // New experience, add add expId and agentIds to updateBatch
+      updateBatch.push_back(std::make_pair(expId, agentIds));
+
+      // Update expId and clear agentId-vector
+      expId = curExpId;
+      agentIds.clear();
+    }
+
+    // Add agentId to container for current expId
+    agentIds.push_back(miniBatch[sortingIndex].second);
+  }
+  // Append last entry
+  updateBatch.push_back(std::make_pair(expId, agentIds));
+
+  // Run update on sorted minibatch
+  size_t updateBatchSize = updateBatch.size();
   std::vector<int> deltaOffPolicyCount(_problem->_agentsPerEnvironment, 0);
   #pragma omp parallel for reduction(vec_int_plus : deltaOffPolicyCount)
-  for (size_t b = 0; b < updateBatch.size(); b++)
+  for (size_t b = 0; b < updateBatchSize; b++)
   {
-    const size_t batchId = updateBatch[b];
-    const size_t expId = miniBatch[batchId].first;
-    const size_t agentId = miniBatch[batchId].second;
+    const size_t expId = updateBatch[b].first;
+    const std::vector<size_t> agentIds = updateBatch[b].second;
 
     // Get reference to data in replay memory
-    auto &stateValue = _stateValueVector[expId][agentId];
+    auto &stateValues = _stateValueVector[expId];
     auto &importanceWeights = _importanceWeightVector[expId];
-    auto &truncatedImportanceWeight = _truncatedImportanceWeightVector[expId][agentId];
+    auto &truncatedImportanceWeights = _truncatedImportanceWeightVector[expId];
     auto &isOnPolicy = _isOnPolicyVector[expId];
 
     // Get action and policy for this experience
-    const auto &expAction = _actionVector[expId][agentId];
-    const auto &expPolicy = _expPolicyVector[expId][agentId];
-    const auto &curPolicy = policyData[batchId];
+    const auto &expAction = _actionVector[expId];
+    const auto &expPolicy = _expPolicyVector[expId];
 
-    /* Write data to replay memory */
-
-    // Update state value
-    stateValue = curPolicy.stateValue;
-    if (std::isfinite(stateValue) == false)
-      KORALI_LOG_ERROR("Calculated state value returned an invalid value: %f\n", stateValue);
-
-    // For terminal state update truncated state value
-    if (_terminationVector[expId] == e_truncated)
+    for ( const auto& agentId : agentIds )
     {
-      // Get truncated state
-      auto expTruncatedStateSequence = getTruncatedStateSequence(expId, agentId);
+      const auto &curPolicy = policyData[policyIndices[b]];
 
-      // Forward policy for truncated state
-      std::vector<policy_t> policyInfo;
-      runPolicy( {expTruncatedStateSequence}, policyInfo, policyIdx );
+      /* Write data to replay memory */
 
-      // Update truncated state value
-      auto &truncatedStateValue = _truncatedStateValueVector[expId];
-      if ( truncatedStateValue.size() == 0 )
-        truncatedStateValue.resize(_problem->_agentsPerEnvironment);
-      truncatedStateValue[agentId] = policyInfo[0].stateValue;
+      // Update state value
+      stateValues[agentId] = curPolicy.stateValue;
+      if (std::isfinite(stateValues[agentId]) == false)
+        KORALI_LOG_ERROR("Calculated state value returned an invalid value: %f\n", stateValues[agentId]);
 
-      // Check value of trucated value
-      if (std::isfinite(truncatedStateValue[agentId]) == false)
-        KORALI_LOG_ERROR("Calculated state value for truncated state returned an invalid value: %f\n", truncatedStateValue[agentId]);
-
-      // For cooporative multi-agent model truncated state-values are averaged
-      if (_multiAgentRelationship == "Cooperation")
+      // For terminal state update truncated state value
+      if (_terminationVector[expId] == e_truncated)
       {
-        // Also update other truncated state values
-        for( size_t a = 0; a < _problem->_agentsPerEnvironment; a++ ) if( a != agentId )
+        // Get truncated state
+        auto expTruncatedStateSequence = getTruncatedStateSequence(expId, agentId);
+
+        // Forward policy for truncated state
+        std::vector<policy_t> policyInfo;
+        runPolicy( {expTruncatedStateSequence}, policyInfo, policyIdx );
+
+        // Update truncated state value
+        auto &truncatedStateValue = _truncatedStateValueVector[expId];
+        if ( truncatedStateValue.size() == 0 )
+          truncatedStateValue.resize(_problem->_agentsPerEnvironment);
+        truncatedStateValue[agentId] = policyInfo[0].stateValue;
+
+        // Check value of trucated value
+        if (std::isfinite(truncatedStateValue[agentId]) == false)
+          KORALI_LOG_ERROR("Calculated state value for truncated state returned an invalid value: %f\n", truncatedStateValue[agentId]);
+
+        // For cooporative multi-agent model truncated state-values are averaged
+        if (_multiAgentRelationship == "Cooperation")
         {
-          // Get truncated state
-          auto expTruncatedStateSequence = getTruncatedStateSequence(expId, a);
+          // .. therefore also update other truncated state values
+          for( size_t a = 0; a < _problem->_agentsPerEnvironment; a++ ) 
+          {
+            if( a == agentId ) continue;
 
-          // Forward Policy for truncated state
-          std::vector<policy_t> policyInfo;
-          runPolicy( {expTruncatedStateSequence}, policyInfo, policyIdx );
+            // Get truncated state
+            auto expTruncatedStateSequence = getTruncatedStateSequence(expId, a);
 
-          // Update Truncated State Value
-          truncatedStateValue[a] = policyInfo[0].stateValue;
+            // Forward Policy for truncated state
+            std::vector<policy_t> policyInfo;
+            runPolicy( {expTruncatedStateSequence}, policyInfo, policyIdx );
 
-          // Check value of trucated value
-          if (std::isfinite(truncatedStateValue[a]) == false)
-            KORALI_LOG_ERROR("Calculated state value for truncated state returned an invalid value: %f\n", truncatedStateValue[a]);
+            // Update Truncated State Value
+            truncatedStateValue[a] = policyInfo[0].stateValue;
+
+            // Check value of trucated value
+            if (std::isfinite(truncatedStateValue[a]) == false)
+              KORALI_LOG_ERROR("Calculated state value for truncated state returned an invalid value: %f\n", truncatedStateValue[a]);
+          }
+
+          float avgTruncV = std::accumulate(truncatedStateValue.begin(), truncatedStateValue.end(), 0.);
+          avgTruncV /= _problem->_agentsPerEnvironment;
+          truncatedStateValue = std::vector<float>(_problem->_agentsPerEnvironment, avgTruncV);
         }
-
-        float avgTruncV = std::accumulate(truncatedStateValue.begin(), truncatedStateValue.end(), 0.);
-        avgTruncV /= _problem->_agentsPerEnvironment;
-        truncatedStateValue = std::vector<float>(_problem->_agentsPerEnvironment, avgTruncV);
       }
+
+      // Update importance weight
+      importanceWeights[agentId] = calculateImportanceWeight(expAction[agentId], curPolicy, expPolicy[agentId]);
+      if (std::isfinite(importanceWeights[agentId]) == false)
+        KORALI_LOG_ERROR("Calculated value of importanceWeight returned an invalid value: %f\n", importanceWeights[agentId]);
+
+      truncatedImportanceWeights[agentId] = std::min(_importanceWeightTruncationLevel, importanceWeights[agentId]);
+
+      // Update on-policyness
+      if( not _multiAgentCorrelation )
+      {
+        const bool onPolicy = (importanceWeights[agentId] > (1.0f / _experienceReplayOffPolicyCurrentCutoff)) && (importanceWeights[agentId] < _experienceReplayOffPolicyCurrentCutoff);
+
+        // Updating off policy count if a change is detected
+        if ( isOnPolicy[agentId] == true && onPolicy == false)
+          deltaOffPolicyCount[agentId] += 1;
+
+        if ( isOnPolicy[agentId] == false && onPolicy == true)
+          deltaOffPolicyCount[agentId] += -1;
+
+        // Overwrite old value
+        isOnPolicy[agentId] = onPolicy;
+      }
+
+      // If all checks succeed and derived quantities are stored, store current policy
+      _curPolicyVector[expId][agentId] = curPolicy;
     }
 
-    // Update importance weight
-    importanceWeights[agentId] = calculateImportanceWeight(expAction, curPolicy, expPolicy);
-    if (std::isfinite(importanceWeights[agentId]) == false)
-      KORALI_LOG_ERROR("Calculated value of importanceWeight returned an invalid value: %f\n", importanceWeights[agentId]);
-
-    truncatedImportanceWeight = std::min(_importanceWeightTruncationLevel, importanceWeights[agentId]);
-
-    // Update on-policyness
-    if( not _multiAgentCorrelation )
-    {
-      const bool onPolicy = (importanceWeights[agentId] > (1.0f / _experienceReplayOffPolicyCurrentCutoff)) && (importanceWeights[agentId] < _experienceReplayOffPolicyCurrentCutoff);
-
-      // Updating off policy count if a change is detected
-      if ( isOnPolicy[agentId] == true && onPolicy == false)
-        deltaOffPolicyCount[agentId] += 1;
-
-      if ( isOnPolicy[agentId] == false && onPolicy == true)
-        deltaOffPolicyCount[agentId] += -1;
-
-      // Overwrite old value
-      isOnPolicy[agentId] = onPolicy;
-    }
-    else
+    // After iterating over agents for this experience, update on-policyness for
+    if( _multiAgentCorrelation )
     {
       float logProdImportanceWeight = 0.0;
       for( size_t a = 0; a < _problem->_agentsPerEnvironment; a++ )
@@ -901,20 +966,17 @@ void __className__::updateExperienceMetadata( const std::vector<std::pair<size_t
       const bool onPolicy = (logProdImportanceWeight > (-1. * logCutOff)) && (logProdImportanceWeight < logCutOff);
 
       // Updating off policy count if a change is detected
-      if ( isOnPolicy[agentId] == true && onPolicy == false)
       for( size_t a = 0; a < _problem->_agentsPerEnvironment; a++ )
+      if ( isOnPolicy[a] == true && onPolicy == false)
         deltaOffPolicyCount[a]++;
 
-      if ( isOnPolicy[agentId] == false && onPolicy == true)
       for( size_t a = 0; a < _problem->_agentsPerEnvironment; a++ )
+      if ( isOnPolicy[a] == false && onPolicy == true)
         deltaOffPolicyCount[a]--;
 
       // Overwrite old value
       std::fill(isOnPolicy.begin(), isOnPolicy.end(), onPolicy);
     }
-
-    // If all checks succeed and derived quantities are stored, store current policy
-    _curPolicyVector[expId][agentId] = curPolicy;
   }
 
   // Update Off-Policy count and ratio
@@ -925,47 +987,46 @@ void __className__::updateExperienceMetadata( const std::vector<std::pair<size_t
   }
 
   // Now filtering experiences from the same episode
-  std::vector<std::pair<size_t,size_t>> retraceMiniBatch;
-  std::vector<size_t> retraceMiniBatchId;
+  std::vector<std::pair<size_t,std::vector<size_t>>> retraceMiniBatch;
 
   // Adding last experience from the sorted minibatch
-  retraceMiniBatch.push_back(miniBatch[miniBatch.size() - 1]);
+  retraceMiniBatch.push_back(updateBatch[updateBatchSize - 1]);
 
   // Adding experiences so long as they do not repeat episodes
-  for (ssize_t i = miniBatch.size() - 2; i >= 0; i--)
+  for (ssize_t b = updateBatchSize - 2; b >= 0; b--)
   {
-    size_t currExpId = miniBatch[i].first;
-    size_t nextExpId = miniBatch[i + 1].first;
-    size_t curEpisode  = _episodeIdVector[currExpId];
+    size_t currExpId = updateBatch[b].first;
+    size_t nextExpId = updateBatch[b + 1].first;
+    size_t curEpisode = _episodeIdVector[currExpId];
     size_t nextEpisode = _episodeIdVector[nextExpId];
-    if ( (curEpisode != nextEpisode) && (miniBatch[i].second == miniBatch[i + 1].second) )
-    {
-      retraceMiniBatch.push_back(miniBatch[i]);
-      retraceMiniBatchId.push_back(i);
-    }
+    if (curEpisode != nextEpisode) retraceMiniBatch.push_back(updateBatch[b]);
   }
 
-  // Calculating retrace value for the oldest experiences of unique episodes
-  #pragma omp parallel for schedule(guided, 1)
-  for (size_t i = 0; i < retraceMiniBatch.size(); i++)
+  // Calculating retrace value starting from oldest experiences
+  #pragma omp parallel for
+  for (size_t b = 0; b < retraceMiniBatch.size(); b++ )
   {
     // Finding the earliest experience corresponding to the same episode as this experience
-    ssize_t endId = retraceMiniBatch[i].first;
-    ssize_t agentId = retraceMiniBatch[i].second;
+    ssize_t endId = retraceMiniBatch[b].first;
     ssize_t startId = endId - _episodePosVector[endId];
 
     // If the starting experience has already been discarded, take the earliest one that still remains
     if (startId < 0) startId = 0;
 
+    // Get agentIds that correspond to this experience
+    const std::vector<size_t> agentIds = retraceMiniBatch[b].second;
+
     // Storage for the retrace value
-    auto &retV = _retraceValueVector[endId][agentId];
+    auto &retV = _retraceValueVector[endId];
 
     // If it was a truncated episode, add the value function for the terminal state to retV
     if (_terminationVector[endId] == e_truncated)
-      retV = _truncatedStateValueVector[endId][agentId];
+    for ( const auto& agentId : agentIds )
+      retV[agentId] = _truncatedStateValueVector[endId][agentId];
 
     if (_terminationVector[endId] == e_nonTerminal)
-      retV = _retraceValueVector[endId + 1][agentId];
+    for ( const auto& agentId : agentIds )
+      retV[agentId] = _retraceValueVector[endId + 1][agentId];
 
     // Now iterating backwards to calculate the rest of vTbc
     for (ssize_t curId = endId; curId >= startId; curId--)
@@ -993,11 +1054,15 @@ void __className__::updateExperienceMetadata( const std::vector<std::pair<size_t
         curV = std::vector<float>(_problem->_agentsPerEnvironment, avgV);
       }
 
-      // Get reward
-      auto curReward = getScaledReward(_rewardVector[curId][agentId], agentId);
+      // Update retrace values for all agents for this experience
+      for ( const auto& agentId : agentIds )
+      {
+        // Get reward
+        auto curReward = getScaledReward(_rewardVector[curId][agentId], agentId);
 
-      // Apply recursion
-      retV = curV[agentId] + truncatedImportanceWeights[agentId] * (curReward + _discountFactor * retV - curV[agentId]);
+        // Apply recursion
+        retV[agentId] = curV[agentId] + truncatedImportanceWeights[agentId] * (curReward + _discountFactor * retV[agentId] - curV[agentId]);
+      }
     }
   }
 }
@@ -1295,6 +1360,12 @@ void __className__::printGenerationAfter()
     _k->_logger->logInfo("Detailed", " + Avg Agent Communication/Wait Time:   [%5.3fs] - [%3.3fs]\n", _generationAgentCommunicationTime / 1.0e+9, _sessionAgentCommunicationTime / 1.0e+9);
     _k->_logger->logInfo("Detailed", " + Avg Agent Policy Evaluation Time:    [%5.3fs] - [%3.3fs]\n", _generationAgentPolicyEvaluationTime / 1.0e+9, _sessionAgentPolicyEvaluationTime / 1.0e+9);
     _k->_logger->logInfo("Detailed", " + Policy Update Time:                  [%5.3fs] - [%3.3fs]\n", _generationPolicyUpdateTime / 1.0e+9, _sessionPolicyUpdateTime / 1.0e+9);
+    _k->_logger->logInfo("Detailed", "   + generateMiniBatch Time:            [%5.3fs] \n", _generationMiniBatchGenerationTime / 1.0e+9);
+    _k->_logger->logInfo("Detailed", "   + getMiniBatchStateSequence Time:    [%5.3fs] \n", _generationStateSequenceTime / 1.0e+9);
+    _k->_logger->logInfo("Detailed", "   + runPolicy Time:                    [%5.3fs] \n", _generationRunPolicyTime / 1.0e+9);
+    _k->_logger->logInfo("Detailed", "   + updateExperienceMetadeta Time:     [%5.3fs] \n", _generationUpdateExperienceMetadataTime/ 1.0e+9);
+    _k->_logger->logInfo("Detailed", "   + calculatePolicyGradients Time:     [%5.3fs] \n", _generationCalculatePolicyGradientsTime / 1.0e+9);
+    _k->_logger->logInfo("Detailed", "   + runGeneration Time                 [%5.3fs] \n", _generationRunGenerationTime/ 1.0e+9);
     _k->_logger->logInfo("Detailed", " + Running Time:                        [%5.3fs] - [%3.3fs]\n", _generationRunningTime / 1.0e+9, _sessionRunningTime / 1.0e+9);
     _k->_logger->logInfo("Detailed", " + [I/O] Result File Saving Time:        %5.3fs\n", _k->_resultSavingTime / 1.0e+9);
   }

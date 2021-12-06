@@ -70,15 +70,25 @@ void __className__::initializeAgent()
 
   _miniBatchPolicyMean.resize(_problem->_actionVectorSize);
   _miniBatchPolicyStdDev.resize(_problem->_actionVectorSize);
+  
 }
 
 void __className__::trainPolicy()
 {
   // Obtaining minibatch of experiences
+  auto beginTime = std::chrono::steady_clock::now();
   const auto miniBatch = generateMiniBatch();
+  auto endTime = std::chrono::steady_clock::now(); 
+  
+  _generationMiniBatchGenerationTime += std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - beginTime).count();
 
   // Gathering state sequences for selected minibatch
+  beginTime = std::chrono::steady_clock::now();
   const auto stateSequence = getMiniBatchStateSequence(miniBatch);
+  endTime = std::chrono::steady_clock::now(); 
+
+  _generationStateSequenceTime += std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - beginTime).count();
+
 
   /* Forward Policy, compute Gradient, and perform Backpropagation */
 
@@ -89,19 +99,33 @@ void __className__::trainPolicy()
     std::vector<policy_t> policyInfo;
 
     // Forward Mini Batch
+    beginTime = std::chrono::steady_clock::now();
     runPolicy(stateSequence, policyInfo, 0);
+    endTime = std::chrono::steady_clock::now(); 
+    
+    _generationRunPolicyTime += std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - beginTime).count();
 
     // Update Metadata and everything needed for gradient computation
+    beginTime = std::chrono::steady_clock::now();
     updateExperienceMetadata(miniBatch, policyInfo, 0);
+    endTime = std::chrono::steady_clock::now(); 
+    
+    _generationUpdateExperienceMetadataTime += std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - beginTime).count();
 
     // Now calculating policy gradients
+    beginTime = std::chrono::steady_clock::now();
     calculatePolicyGradients(miniBatch, policyInfo, 0);
+    endTime = std::chrono::steady_clock::now(); 
+    _generationCalculatePolicyGradientsTime += std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - beginTime).count();
 
     // Updating learning rate for critic/policy learner guided by REFER
     _criticPolicyLearner[0]->_learningRate = _currentLearningRate;
 
     // Now applying gradients to update policy NN
+    beginTime = std::chrono::steady_clock::now();
     _criticPolicyLearner[0]->runGeneration();
+    endTime = std::chrono::steady_clock::now(); 
+    _generationRunGenerationTime += std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - beginTime).count();
   }
   else // Update agent by agent using fixed minibatch-size
   {
