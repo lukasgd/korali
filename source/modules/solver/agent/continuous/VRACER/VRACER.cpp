@@ -66,9 +66,14 @@ void VRACER::initializeAgent()
     }
 
     // Running initialization to verify that the configuration is correct
+    _criticPolicyExperiment[p].setEngine(_k->_engine);
     _criticPolicyExperiment[p].initialize();
     _criticPolicyProblem[p] = dynamic_cast<problem::SupervisedLearning *>(_criticPolicyExperiment[p]._problem);
     _criticPolicyLearner[p] = dynamic_cast<solver::learner::DeepSupervisor *>(_criticPolicyExperiment[p]._solver);
+
+    // Preallocating space in the underlying supervised problem's input and solution data structures (for performance, we don't reinitialize it every time)
+    _criticPolicyProblem[p]->_inputData.resize(_miniBatchSize);
+    _criticPolicyProblem[p]->_solutionData.resize(_miniBatchSize);
   }
 
   _miniBatchPolicyMean.resize(_problem->_actionVectorSize);
