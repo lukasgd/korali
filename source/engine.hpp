@@ -73,9 +73,9 @@ class Engine
   void saveProfilingInfo(const bool forceSave = false);
 
   /**
-   * @brief Initialization stage of the Korali Engine
+   * @brief Initializer for the engine's experiments
    */
-  void initialize();
+  void initializeExperiments();
 
   /**
    * @brief Stores a set experiments into the experiment list and runs them to completion.

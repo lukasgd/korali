@@ -128,7 +128,7 @@ void Conduit::workerStackEngine(const knlohmann::json &js)
     k->_experimentVector.push_back(e);
   }
 
-  k->initialize();
+  k->initializeExperiments();
   k->_conduit = this;
 
   _engineStack.push(k);
