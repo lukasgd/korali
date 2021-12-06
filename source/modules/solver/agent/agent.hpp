@@ -650,16 +650,6 @@ class Agent : public Solver
    */
   double _generationRunGenerationTime;
 
-
-  /**
-   * @brief [Profiling] Measures the time taken to update Metadata
-   */
-  double _generationUpdateSegment1;
-  double _generationUpdateSegment2;
-  double _generationUpdateSegment3;
-  double _generationUpdateSegment4;
-  double _generationUpdateSegment5;
-
   /****************************************************************************************************
    * Common Agent functions
    ***************************************************************************************************/
