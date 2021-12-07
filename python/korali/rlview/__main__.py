@@ -44,7 +44,6 @@ def plotRewardHistory(ax, dirs, results, minReward, maxReward, averageDepth, max
       
       cumulativeObsCountHistory = np.cumsum(np.array(r["Solver"]["Training"]["Experience History"]))
       rewardHistory = np.array(r["Solver"]["Training"]["Reward History"])
-      trainingRewardThreshold = r["Problem"]["Training Reward Threshold"]
       if average == True:
         rewardHistory = np.mean(rewardHistory,axis=0)
         rewardHistory.resize(1,rewardHistory.shape[0])
@@ -53,17 +52,17 @@ def plotRewardHistory(ax, dirs, results, minReward, maxReward, averageDepth, max
       if aggregate == True and len(unpackedResults) > 0:
         for d in range(1):
             #pdb.set_trace()
-            coH, rH, trTh  = unpackedResults[0]
+            coH, rH  = unpackedResults[0]
             aggCumObs = np.append(coH, cumulativeObsCountHistory)
             aggRewards = np.append(rH, rewardHistory)
 
             sortedAggRewards = np.array([r for _, r in sorted(zip(aggCumObs, aggRewards), key=lambda pair: pair[0])])
             sortedAggCumObs = np.sort(aggCumObs)
-            unpackedResults[0] = (sortedAggCumObs, sortedAggRewards, trainingRewardThreshold)
+            unpackedResults[0] = (sortedAggCumObs, sortedAggRewards)
 
       # Append Results
       else:
-        unpackedResults.append((cumulativeObsCountHistory, rewardHistory, trainingRewardThreshold) )
+        unpackedResults.append((cumulativeObsCountHistory, rewardHistory) )
 
      ## Plotting the individual experiment results
      
@@ -72,7 +71,7 @@ def plotRewardHistory(ax, dirs, results, minReward, maxReward, averageDepth, max
       if store:
         np.savez(savename, unpackedRes= unpackedResults)
       
-      cumulativeObsArr, rewardHistory, trainingRewardThreshold = r
+      cumulativeObsArr, rewardHistory = r
       
       #pdb.set_trace()
       currObsCount = cumulativeObsArr[-1]
@@ -90,11 +89,6 @@ def plotRewardHistory(ax, dirs, results, minReward, maxReward, averageDepth, max
        if (np.max(rewardHistory) < math.inf):
         maxPlotReward =np. max(rewardHistory)
 
-      if (trainingRewardThreshold != -math.inf and trainingRewardThreshold != math.inf): 
-       if (trainingRewardThreshold > maxPlotReward): maxPlotReward = trainingRewardThreshold
-      
-      if (trainingRewardThreshold != -math.inf and trainingRewardThreshold != math.inf):   
-       if (trainingRewardThreshold < minPlotReward): minPlotReward = trainingRewardThreshold
      
       # Getting average cumulative reward statistics
       cumRewards = np.cumsum(rewardHistory)

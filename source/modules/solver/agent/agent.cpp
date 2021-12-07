@@ -811,6 +811,9 @@ void Agent::updateExperienceMetadata( const std::vector<std::pair<size_t,size_t>
   // Container for unique experiences
   std::vector<std::pair<size_t,std::vector<size_t>>> updateBatch;
 
+  // Container for reference to policyData
+  std::vector<std::vector<size_t>> policyReference;
+
   // Variables to keep track of expId
   size_t expId, curExpId;
   expId = curExpId = miniBatch[sortHelper[0].second].first;
@@ -839,12 +842,16 @@ void Agent::updateExperienceMetadata( const std::vector<std::pair<size_t,size_t>
 
     if( curExpId != expId )
     {
-      // New experience, add add expId and agentIds to updateBatch
+      // New experience, add expId and agentIds to updateBatch
       updateBatch.push_back(std::make_pair(expId, agentIds));
+
+      // New experience, add policyIndices to policy reference
+      policyReference.push_back(policyIndices);
 
       // Update expId and clear agentId-vector
       expId = curExpId;
       agentIds.clear();
+      policyIndices.clear();
     }
 
     // Add agentId to container for current expId
@@ -852,6 +859,7 @@ void Agent::updateExperienceMetadata( const std::vector<std::pair<size_t,size_t>
   }
   // Append last entry
   updateBatch.push_back(std::make_pair(expId, agentIds));
+  policyReference.push_back(policyIndices);
 
   // Run update on sorted minibatch
   size_t updateBatchSize = updateBatch.size();
@@ -874,7 +882,7 @@ void Agent::updateExperienceMetadata( const std::vector<std::pair<size_t,size_t>
 
     for ( const auto& agentId : agentIds )
     {
-      const auto &curPolicy = policyData[policyIndices[b]];
+      const auto &curPolicy = policyData[policyReference[b][agentId]];
 
       /* Write data to replay memory */
 
