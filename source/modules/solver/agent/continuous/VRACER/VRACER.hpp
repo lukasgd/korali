@@ -32,6 +32,10 @@ namespace continuous
 class VRACER : public Continuous
 {
   public: 
+  /**
+  * @brief [Internal Use] Effective Minibatch Sized used in Multi Agent Reinforcement Learning.
+  */
+   size_t _effectiveMinibatchSize;
   
  
   /**

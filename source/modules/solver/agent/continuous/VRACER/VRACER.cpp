@@ -30,13 +30,16 @@ void VRACER::initializeAgent()
   _criticPolicyExperiment.resize(_problem->_policiesPerEnvironment);
   _criticPolicyProblem.resize(_problem->_policiesPerEnvironment);
 
+  // Setting Effective Minibatch Size in the context of MARL
+  _effectiveMinibatchSize = _miniBatchSize;
+  if( _multiPolicyUpdate == "Together" )
+    _effectiveMinibatchSize =  _miniBatchSize * _problem->_agentsPerEnvironment;
+
   for (size_t p = 0; p < _problem->_policiesPerEnvironment; p++)
   {
     _criticPolicyExperiment[p]["Problem"]["Type"] = "Supervised Learning";
     _criticPolicyExperiment[p]["Problem"]["Max Timesteps"] = _timeSequenceLength;
-    _criticPolicyExperiment[p]["Problem"]["Training Batch Size"] = _miniBatchSize;
-    if( _multiPolicyUpdate == "Together" )
-      _criticPolicyExperiment[p]["Problem"]["Training Batch Size"] = _miniBatchSize * _problem->_agentsPerEnvironment;
+    _criticPolicyExperiment[p]["Problem"]["Training Batch Size"] = _effectiveMinibatchSize;
     _criticPolicyExperiment[p]["Problem"]["Testing Batch Size"] = 1;
     _criticPolicyExperiment[p]["Problem"]["Input"]["Size"] = _problem->_stateVectorSize;
     _criticPolicyExperiment[p]["Problem"]["Solution"]["Size"] = 1 + _policyParameterCount;
@@ -72,8 +75,8 @@ void VRACER::initializeAgent()
     _criticPolicyLearner[p] = dynamic_cast<solver::learner::DeepSupervisor *>(_criticPolicyExperiment[p]._solver);
 
     // Preallocating space in the underlying supervised problem's input and solution data structures (for performance, we don't reinitialize it every time)
-    _criticPolicyProblem[p]->_inputData.resize(_miniBatchSize);
-    _criticPolicyProblem[p]->_solutionData.resize(_miniBatchSize);
+    _criticPolicyProblem[p]->_inputData.resize(_effectiveMinibatchSize);
+    _criticPolicyProblem[p]->_solutionData.resize(_effectiveMinibatchSize);
   }
 
   _miniBatchPolicyMean.resize(_problem->_actionVectorSize);
@@ -372,6 +375,14 @@ void VRACER::setConfiguration(knlohmann::json& js)
 {
  if (isDefined(js, "Results"))  eraseValue(js, "Results");
 
+ if (isDefined(js, "Effective Minibatch Size"))
+ {
+ try { _effectiveMinibatchSize = js["Effective Minibatch Size"].get<size_t>();
+} catch (const std::exception& e)
+ { KORALI_LOG_ERROR(" + Object: [ VRACER ] \n + Key:    ['Effective Minibatch Size']\n%s", e.what()); } 
+   eraseValue(js, "Effective Minibatch Size");
+ }
+
  if (isDefined(_k->_js.getJson(), "Variables"))
  for (size_t i = 0; i < _k->_js["Variables"].size(); i++) { 
  if (isDefined(_k->_js["Variables"][i], "Initial Exploration Noise"))
@@ -394,6 +405,7 @@ void VRACER::getConfiguration(knlohmann::json& js)
 {
 
  js["Type"] = _type;
+   js["Effective Minibatch Size"] = _effectiveMinibatchSize;
  for (size_t i = 0; i <  _k->_variables.size(); i++) { 
    _k->_js["Variables"][i]["Initial Exploration Noise"] = _k->_variables[i]->_initialExplorationNoise;
  } 
