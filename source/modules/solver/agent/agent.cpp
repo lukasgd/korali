@@ -610,11 +610,11 @@ void Agent::processEpisode(knlohmann::json &episode)
 
     // If outgoing experience is off policy, subtract off policy counter
     if (_isOnPolicyVector.size() == _experienceReplayMaximumSize)
-    for (size_t d = 0; d < _problem->_agentsPerEnvironment; d++)
-    if (_isOnPolicyVector[0][d] == false)
-    {
-      _experienceReplayOffPolicyCount[d]--;
-    }
+      for (size_t d = 0; d < _problem->_agentsPerEnvironment; d++)
+        if (_isOnPolicyVector[0][d] == false)
+        {
+          _experienceReplayOffPolicyCount[d]--;
+        }
 
     // Adding new experience's on policiness (by default is true when adding it to the ER)
     _isOnPolicyVector.add(std::vector<bool>(_problem->_agentsPerEnvironment, true));
@@ -834,8 +834,6 @@ void Agent::updateExperienceMetadata( const std::vector<std::pair<size_t,size_t>
     if( miniBatch[sortingIndex] == miniBatch[sortHelper[b - 1].second] )
       continue;
 
-    // Append Index
-    policyIndices.push_back(sortingIndex);
 
     // Read next expId
     curExpId = miniBatch[sortingIndex].first;
@@ -852,10 +850,14 @@ void Agent::updateExperienceMetadata( const std::vector<std::pair<size_t,size_t>
       expId = curExpId;
       agentIds.clear();
       policyIndices.clear();
+
     }
 
     // Add agentId to container for current expId
     agentIds.push_back(miniBatch[sortingIndex].second);
+
+    // Append Index
+    policyIndices.push_back(sortingIndex);
   }
   // Append last entry
   updateBatch.push_back(std::make_pair(expId, agentIds));
@@ -922,7 +924,7 @@ void Agent::updateExperienceMetadata( const std::vector<std::pair<size_t,size_t>
             // Get truncated state
             auto expTruncatedStateSequence = getTruncatedStateSequence(expId, a);
 
-            // Forward Policy for truncated state
+            // Forward Policy for truncated state //TODO: WILL NOT WORK WITH MULTIPLE Polices if a != policyIDX
             std::vector<policy_t> policyInfo;
             runPolicy( {expTruncatedStateSequence}, policyInfo, policyIdx );
 
@@ -951,13 +953,12 @@ void Agent::updateExperienceMetadata( const std::vector<std::pair<size_t,size_t>
       if( not _multiAgentCorrelation )
       {
         const bool onPolicy = (importanceWeights[agentId] > (1.0f / _experienceReplayOffPolicyCurrentCutoff)) && (importanceWeights[agentId] < _experienceReplayOffPolicyCurrentCutoff);
-
         // Updating off policy count if a change is detected
         if ( isOnPolicy[agentId] == true && onPolicy == false)
-          deltaOffPolicyCount[agentId] += 1;
+          deltaOffPolicyCount[agentId]++;
 
         if ( isOnPolicy[agentId] == false && onPolicy == true)
-          deltaOffPolicyCount[agentId] += -1;
+          deltaOffPolicyCount[agentId]--;
 
         // Overwrite old value
         isOnPolicy[agentId] = onPolicy;
@@ -979,12 +980,12 @@ void Agent::updateExperienceMetadata( const std::vector<std::pair<size_t,size_t>
 
       // Updating off policy count if a change is detected
       for( size_t a = 0; a < _problem->_agentsPerEnvironment; a++ )
-      if ( isOnPolicy[a] == true && onPolicy == false)
-        deltaOffPolicyCount[a]++;
+        if ( isOnPolicy[a] == true && onPolicy == false)
+          deltaOffPolicyCount[a]++;
 
       for( size_t a = 0; a < _problem->_agentsPerEnvironment; a++ )
-      if ( isOnPolicy[a] == false && onPolicy == true)
-        deltaOffPolicyCount[a]--;
+        if ( isOnPolicy[a] == false && onPolicy == true)
+          deltaOffPolicyCount[a]--;
 
       // Overwrite old value
       std::fill(isOnPolicy.begin(), isOnPolicy.end(), onPolicy);
@@ -1016,6 +1017,7 @@ void Agent::updateExperienceMetadata( const std::vector<std::pair<size_t,size_t>
 
   // Calculating retrace value starting from oldest experiences
   #pragma omp parallel for
+//#pragma omp parallel for schedule(guided, 1)  
   for (size_t b = 0; b < retraceMiniBatch.size(); b++ )
   {
     // Finding the earliest experience corresponding to the same episode as this experience
@@ -1033,12 +1035,12 @@ void Agent::updateExperienceMetadata( const std::vector<std::pair<size_t,size_t>
 
     // If it was a truncated episode, add the value function for the terminal state to retV
     if (_terminationVector[endId] == e_truncated)
-    for ( const auto& agentId : agentIds )
-      retV[agentId] = _truncatedStateValueVector[endId][agentId];
+      for ( const auto& agentId : agentIds )
+        retV[agentId] = _truncatedStateValueVector[endId][agentId];
 
     if (_terminationVector[endId] == e_nonTerminal)
-    for ( const auto& agentId : agentIds )
-      retV[agentId] = _retraceValueVector[endId + 1][agentId];
+      for ( const auto& agentId : agentIds )
+        retV[agentId] = _retraceValueVector[endId + 1][agentId];
 
     // Now iterating backwards to calculate the rest of vTbc
     for (ssize_t curId = endId; curId >= startId; curId--)
